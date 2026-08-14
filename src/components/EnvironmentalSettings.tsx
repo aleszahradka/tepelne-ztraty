@@ -2,8 +2,10 @@ import React from 'react';
 import { useHeatLossStore } from '../store';
 import { Thermometer, Home, Wind, Info } from 'lucide-react';
 import { calculateVentilationLoss } from '../mathEngine';
+import { useTranslate } from '../hooks/useTranslate';
 
 export const EnvironmentalSettingsPanel: React.FC = () => {
+  const { t } = useTranslate();
   const settings = useHeatLossStore((state) => state.environmental_settings);
   const updateSettings = useHeatLossStore((state) => state.updateEnvironmentalSettings);
 
@@ -13,11 +15,11 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
     <div className="bg-white rounded-xl shadow-md p-6 border border-slate-100 h-full">
       <div className="flex items-center gap-2 mb-4">
         <Thermometer className="text-blue-600 w-6 h-6" />
-        <h2 className="text-xl font-bold text-slate-800">Environmental & Ventilation</h2>
+        <h2 className="text-xl font-bold text-slate-800">{t.environmental.title}</h2>
       </div>
 
       <p className="text-slate-500 text-sm mb-6">
-        Define design temperatures and building volume to compute temperature difference and ventilation heat loss.
+        {t.environmental.desc}
       </p>
 
       <div className="space-y-5">
@@ -25,7 +27,7 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
-              Indoor Temperature (<span className="italic">t_int</span>)
+              {t.environmental.indoorTemp} (<span className="italic">t_int</span>)
             </label>
             <span className="text-sm font-bold text-blue-600">{settings.t_int} °C</span>
           </div>
@@ -52,7 +54,7 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-sm font-medium text-slate-700">
-              Outdoor Temperature (<span className="italic">t_e</span>)
+              {t.environmental.outdoorTemp} (<span className="italic">t_e</span>)
             </label>
             <span className="text-sm font-bold text-sky-600">{settings.t_e} °C</span>
           </div>
@@ -80,7 +82,7 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
           <div className="flex justify-between items-center mb-1">
             <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
               <Home className="w-4 h-4 text-slate-400" />
-              Building/Room Volume (<span className="italic">V</span>)
+              {t.environmental.volumeLabel}
             </label>
             <span className="text-xs text-slate-400">m³</span>
           </div>
@@ -105,7 +107,7 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
           <div className="flex justify-between items-center mb-1">
             <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
               <Wind className="w-4 h-4 text-slate-400" />
-              Air Exchange Rate (<span className="italic">n</span>)
+              {t.environmental.airExchange}
             </label>
             <span className="text-xs text-slate-400">1/h</span>
           </div>
@@ -133,13 +135,13 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
         {/* Calculation Result Preview */}
         <div className="mt-6 pt-5 border-t border-slate-100 bg-slate-50 rounded-lg p-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-slate-600">Temp. Difference (ΔT):</span>
+            <span className="text-sm font-medium text-slate-600">{t.environmental.tempDiffShort}:</span>
             <span className="text-sm font-bold text-slate-800">
               {settings.t_int - settings.t_e} K
             </span>
           </div>
           <div className="flex justify-between items-center mt-2">
-            <span className="text-sm font-medium text-slate-600">Ventilation Loss (Φ_V):</span>
+            <span className="text-sm font-medium text-slate-600">{t.environmental.ventilationLossShort}:</span>
             <span className="text-md font-extrabold text-blue-600">
               {phiV.toFixed(1)} W
             </span>
@@ -147,7 +149,7 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
           <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-400">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
             <span>
-              Calculated as: V × n × 0.34 × ΔT
+              {t.environmental.formulaHint}
             </span>
           </div>
         </div>

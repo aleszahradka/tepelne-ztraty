@@ -63,7 +63,7 @@ const demoAssemblyWindowId = 'asm-window-double';
 const INITIAL_ASSEMBLIES: Assembly[] = [
   {
     id: demoAssemblyWallId,
-    name: "External Wall (Insulated)",
+    name: "External Wall (Insulated) / Vnější stěna (Zateplená)",
     type: "wall",
     rsi: 0.13,
     rse: 0.04,
@@ -74,7 +74,7 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
   },
   {
     id: demoAssemblyRoofId,
-    name: "Insulated Roof Standard",
+    name: "Insulated Roof Standard / Zateplená střecha",
     type: "roof",
     rsi: 0.10,
     rse: 0.04,
@@ -85,7 +85,7 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
   },
   {
     id: demoAssemblyWindowId,
-    name: "Double Glazed Window",
+    name: "Double Glazed Window / Okno s dvojsklem",
     type: "window",
     rsi: 0.13,
     rse: 0.04,
@@ -98,7 +98,7 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
 const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
   {
     id: generateUUID(),
-    name: "North Wall (External)",
+    name: "North Wall (External) / Severní stěna",
     area: 45.0,
     assembly_id: demoAssemblyWallId,
     adjacent_space_type: "exterior",
@@ -107,7 +107,7 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
   },
   {
     id: generateUUID(),
-    name: "South Wall (External)",
+    name: "South Wall (External) / Jižní stěna",
     area: 45.0,
     assembly_id: demoAssemblyWallId,
     adjacent_space_type: "exterior",
@@ -116,7 +116,7 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
   },
   {
     id: generateUUID(),
-    name: "Main Roof",
+    name: "Main Roof / Hlavní střecha",
     area: 60.0,
     assembly_id: demoAssemblyRoofId,
     adjacent_space_type: "exterior",
@@ -125,7 +125,7 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
   },
   {
     id: generateUUID(),
-    name: "Living Room Window",
+    name: "Living Room Window / Obývací okno",
     area: 6.0,
     assembly_id: demoAssemblyWindowId,
     adjacent_space_type: "exterior",
@@ -134,7 +134,7 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
   },
   {
     id: generateUUID(),
-    name: "Basement Floor Connection",
+    name: "Basement Floor Connection / Podlaha suterénu",
     area: 60.0,
     assembly_id: demoAssemblyWallId, // placeholder
     adjacent_space_type: "ground",
@@ -143,13 +143,21 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
   }
 ];
 
+// Get initial language preference from localStorage, default to 'cs' (Czech)
+const getInitialLanguage = (): 'cs' | 'en' => {
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('heat_loss_lang') : null;
+  return (stored === 'cs' || stored === 'en') ? stored : 'cs';
+};
+
 interface HeatLossState {
+  language: 'cs' | 'en';
   materials: Material[];
   assemblies: Assembly[];
   envelope_elements: EnvelopeElement[];
   environmental_settings: EnvironmentalSettings;
 
   // Actions
+  setLanguage: (lang: 'cs' | 'en') => void;
   addMaterial: (material: Material) => void;
   deleteMaterial: (id: string) => void;
 
@@ -172,10 +180,19 @@ interface HeatLossState {
 }
 
 export const useHeatLossStore = create<HeatLossState>((set) => ({
+  language: getInitialLanguage(),
   materials: BUILT_IN_MATERIALS,
   assemblies: INITIAL_ASSEMBLIES,
   envelope_elements: INITIAL_ENVELOPE_ELEMENTS,
   environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
+
+  // Language management
+  setLanguage: (language) => set(() => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('heat_loss_lang', language);
+    }
+    return { language };
+  }),
 
   // Materials
   addMaterial: (material) => set((state) => ({

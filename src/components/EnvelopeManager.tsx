@@ -3,8 +3,10 @@ import { useHeatLossStore, generateUUID } from '../store';
 import type { EnvelopeElement, AdjacentSpaceType } from '../types';
 import { calculateAssemblyUValue, calculateEffectiveUValue, calculateTransmissionLoss } from '../mathEngine';
 import { ShieldAlert, Plus, Trash2, Copy, HelpCircle } from 'lucide-react';
+import { useTranslate } from '../hooks/useTranslate';
 
 export const EnvelopeManager: React.FC = () => {
+  const { t } = useTranslate();
   const elements = useHeatLossStore((state) => state.envelope_elements);
   const assemblies = useHeatLossStore((state) => state.assemblies);
   const materials = useHeatLossStore((state) => state.materials);
@@ -86,7 +88,7 @@ export const EnvelopeManager: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <ShieldAlert className="text-red-500 w-6 h-6" />
-          <h2 className="text-xl font-bold text-slate-800">Building Envelope & transmission Losses</h2>
+          <h2 className="text-xl font-bold text-slate-800">{t.envelope.title}</h2>
         </div>
         <button
           onClick={() => setShowHelper(!showHelper)}
@@ -98,30 +100,30 @@ export const EnvelopeManager: React.FC = () => {
       </div>
 
       <p className="text-slate-500 text-sm mb-6">
-        Specify individual building surfaces (walls, roofs, windows) with their respective areas, construction assembly, and adjacent space reduction factors (b).
+        {t.envelope.desc}
       </p>
 
       {/* b-factor and Delta U helper guide */}
       {showHelper && (
         <div className="mb-6 p-4 bg-red-50 text-red-900 rounded-lg text-xs leading-relaxed grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="font-bold mb-1">Temperature Reduction Factor (b):</p>
+            <p className="font-bold mb-1">{t.envelope.guideSpaceTitle}</p>
             <ul className="list-disc pl-4 space-y-0.5">
-              <li><strong>Exterior (Directly adjacent to outdoor air):</strong> b = 1.00</li>
-              <li><strong>Ground (Slab on ground / Basements):</strong> b = 0.45</li>
-              <li><strong>Unheated attic or garage space:</strong> b = 0.60 to 0.80</li>
-              <li><strong>Partially buffered or crawlspaces:</strong> Custom value (e.g. 0.50)</li>
+              <li>{t.envelope.guideSpaceExterior}</li>
+              <li>{t.envelope.guideSpaceGround}</li>
+              <li>{t.envelope.guideSpaceUnheated}</li>
+              <li>{t.envelope.guideSpaceCustom}</li>
             </ul>
           </div>
           <div>
-            <p className="font-bold mb-1">Thermal Bridge Correction (ΔU_tb):</p>
+            <p className="font-bold mb-1">{t.envelope.guideBridgeTitle}</p>
             <p>
-              Adds a continuous physical penalty (W/m²K) onto the U-value to account for structural thermal bridges (corners, joists, anchors):
+              {t.envelope.guideBridgeDesc}
             </p>
             <ul className="list-disc pl-4 mt-1 space-y-0.5">
-              <li><strong>Negligible bridges:</strong> ΔU_tb = 0.00 – 0.02</li>
-              <li><strong>Standard new builds (default):</strong> ΔU_tb = 0.05</li>
-              <li><strong>Old uninsulated buildings:</strong> ΔU_tb = 0.10+</li>
+              <li>{t.envelope.guideBridgeNegligible}</li>
+              <li>{t.envelope.guideBridgeStandard}</li>
+              <li>{t.envelope.guideBridgeOld}</li>
             </ul>
           </div>
         </div>
@@ -129,11 +131,11 @@ export const EnvelopeManager: React.FC = () => {
 
       {/* Envelope Element Creator Form */}
       <form onSubmit={handleCreateElement} className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100">
-        <h3 className="text-sm font-bold text-slate-700 mb-3">Add Building Envelope Surface</h3>
+        <h3 className="text-sm font-bold text-slate-700 mb-3">{t.envelope.addSurfaceTitle}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 items-end">
           {/* Surface Name */}
           <div className="sm:col-span-1 md:col-span-2 xl:col-span-2">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Surface / Element Name</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.envelope.surfaceName}</label>
             <input
               type="text"
               required
@@ -146,7 +148,7 @@ export const EnvelopeManager: React.FC = () => {
 
           {/* Area */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Area (m²)</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.envelope.area}</label>
             <input
               type="number"
               step="0.1"
@@ -160,7 +162,7 @@ export const EnvelopeManager: React.FC = () => {
 
           {/* Assembly Link */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Construction Assembly</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.envelope.constAssembly}</label>
             <select
               required
               value={newAssemblyId || (assemblies[0]?.id || '')}
@@ -178,23 +180,23 @@ export const EnvelopeManager: React.FC = () => {
 
           {/* Space type */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Adjacent Space</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.envelope.adjacentSpace}</label>
             <select
               value={newAdjacentSpace}
               onChange={(e) => handleSpaceTypeChange(e.target.value as AdjacentSpaceType, true)}
               className="w-full px-3 py-2 border border-slate-200 rounded-md text-xs focus:ring-red-500 focus:border-red-500 bg-white"
             >
-              <option value="exterior">Exterior (Direct)</option>
-              <option value="ground">Ground Floor</option>
-              <option value="unheated">Unheated Space</option>
-              <option value="custom">Custom factor</option>
+              <option value="exterior">{t.envelope.spaces.exterior}</option>
+              <option value="ground">{t.envelope.spaces.ground}</option>
+              <option value="unheated">{t.envelope.spaces.unheated}</option>
+              <option value="custom">{t.envelope.spaces.custom}</option>
             </select>
           </div>
 
           {/* b-factor or thermal bridges */}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
-              b-Factor ({newAdjacentSpace})
+              {t.envelope.bFactor} ({newAdjacentSpace})
             </label>
             <input
               type="number"
@@ -211,7 +213,7 @@ export const EnvelopeManager: React.FC = () => {
           {/* Delta U tb */}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
-              Bridge Penalty ΔU_tb
+              {t.envelope.bridgePenalty}
             </label>
             <input
               type="number"
@@ -235,7 +237,7 @@ export const EnvelopeManager: React.FC = () => {
               className="w-full py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-colors h-[34px]"
             >
               <Plus className="w-4 h-4" />
-              Add Surface to Envelope
+              {t.envelope.addBtn}
             </button>
           </div>
         </div>
@@ -246,14 +248,14 @@ export const EnvelopeManager: React.FC = () => {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
-              <th className="px-4 py-3">Surface / Envelope Element</th>
-              <th className="px-4 py-3">Area (A)</th>
-              <th className="px-4 py-3">Assembly (U_asm)</th>
-              <th className="px-4 py-3">Penalty ΔU_tb</th>
-              <th className="px-4 py-3">Effective U</th>
-              <th className="px-4 py-3">b-Factor</th>
-              <th className="px-4 py-3 text-right">Heat Loss (Φ_T)</th>
-              <th className="px-4 py-3 text-center">Actions</th>
+              <th className="px-4 py-3">{t.envelope.tableHeaderSurface}</th>
+              <th className="px-4 py-3">{t.envelope.tableHeaderArea}</th>
+              <th className="px-4 py-3">{t.envelope.tableHeaderAssembly}</th>
+              <th className="px-4 py-3">{t.envelope.tableHeaderPenalty}</th>
+              <th className="px-4 py-3">{t.envelope.tableHeaderEffectiveU}</th>
+              <th className="px-4 py-3">{t.envelope.tableHeaderBFactor}</th>
+              <th className="px-4 py-3 text-right">{t.envelope.tableHeaderHeatLoss}</th>
+              <th className="px-4 py-3 text-center">{t.envelope.tableHeaderActions}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
@@ -334,10 +336,10 @@ export const EnvelopeManager: React.FC = () => {
                         onChange={(e) => handleSpaceTypeChange(e.target.value as AdjacentSpaceType, false, element.id)}
                         className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-600 outline-none"
                       >
-                        <option value="exterior">Exterior</option>
-                        <option value="ground">Ground</option>
-                        <option value="unheated">Unheated</option>
-                        <option value="custom">Custom</option>
+                        <option value="exterior">{t.envelope.spaces.exterior}</option>
+                        <option value="ground">{t.envelope.spaces.ground}</option>
+                        <option value="unheated">{t.envelope.spaces.unheated}</option>
+                        <option value="custom">{t.envelope.spaces.custom}</option>
                       </select>
                       <input
                         type="number"
@@ -354,7 +356,7 @@ export const EnvelopeManager: React.FC = () => {
 
                   {/* Computed Heat Loss */}
                   <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                    <div className="font-mono text-sm font-black text-red-600">
+                    <div className="font-mono text-sm font-black text-red-600 font-mono">
                       {loss.toFixed(1)} W
                     </div>
                     {/* Tiny inline distribution bar */}
@@ -372,14 +374,14 @@ export const EnvelopeManager: React.FC = () => {
                       <button
                         onClick={() => handleDuplicateElement(element)}
                         className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
-                        title="Duplicate Surface"
+                        title={t.envelope.duplicateTooltip}
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => deleteElement(element.id)}
                         className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded transition-colors"
-                        title="Delete Surface"
+                        title={t.envelope.deleteTooltip}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -392,7 +394,7 @@ export const EnvelopeManager: React.FC = () => {
             {elements.length === 0 && (
               <tr>
                 <td colSpan={8} className="text-center p-10 text-slate-400">
-                  No envelope parts created yet. Create surfaces using the form above to assess transmission losses.
+                  {t.envelope.noSurfaces}
                 </td>
               </tr>
             )}
