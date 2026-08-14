@@ -24,14 +24,25 @@ export const MaterialDatabase: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showHelper, setShowHelper] = useState(false);
 
+  const categoryMap: Record<string, { cs: string; en: string }> = {
+    Insulation: { cs: "Tepelné izolace", en: "Thermal Insulation" },
+    Masonry: { cs: "Zdivo a tvárnice", en: "Masonry & Blocks" },
+    Concrete: { cs: "Betony a malty", en: "Concrete & Mortars" },
+    Wood: { cs: "Deskové materiály a dřevo", en: "Board Materials & Wood" },
+    Plasters: { cs: "Omítky a potěry", en: "Plasters & Renders" },
+    Others: { cs: "Zemina a ostatní", en: "Ground & Misc" }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || lambda <= 0) return;
 
+    const catObj = categoryMap[category] || { cs: category, en: category };
+
     const newMaterial: Material = {
       id: generateUUID(),
-      name: name.trim(),
-      category,
+      name: { cs: name.trim(), en: name.trim() },
+      category: catObj,
       design_thermal_conductivity: lambda,
       is_custom: true
     };

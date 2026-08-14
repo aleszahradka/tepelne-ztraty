@@ -1,44 +1,8 @@
 import { create } from 'zustand';
 import type { Material, Assembly, EnvelopeElement, EnvironmentalSettings, ProjectState, Layer } from './types';
+import { BUILT_IN_MATERIALS } from './data/materials';
 
-// Standard mock materials as starting database
-export const BUILT_IN_MATERIALS: Material[] = [
-  {
-    id: "mat-brick-solid",
-    name: { cs: "Plná cihla", en: "Solid Clay Brick" },
-    category: { cs: "Zdivo", en: "Masonry" },
-    design_thermal_conductivity: 0.80,
-    is_custom: false
-  },
-  {
-    id: "mat-reinforced-concrete",
-    name: { cs: "Železobeton", en: "Reinforced Concrete" },
-    category: { cs: "Beton", en: "Concrete" },
-    design_thermal_conductivity: 1.58,
-    is_custom: false
-  },
-  {
-    id: "mat-mineral-wool",
-    name: { cs: "Minerální vata", en: "Mineral Wool" },
-    category: { cs: "Tepelná izolace", en: "Thermal Insulation" },
-    design_thermal_conductivity: 0.038,
-    is_custom: false
-  },
-  {
-    id: "mat-eps",
-    name: { cs: "Pěnový polystyren EPS", en: "Expanded Polystyrene (EPS)" },
-    category: { cs: "Tepelná izolace", en: "Thermal Insulation" },
-    design_thermal_conductivity: 0.035,
-    is_custom: false
-  },
-  {
-    id: "mat-gypsum-board",
-    name: { cs: "Sádrokartonová deska", en: "Gypsum Plasterboard" },
-    category: { cs: "Deskové materiály", en: "Plasterboards" },
-    design_thermal_conductivity: 0.22,
-    is_custom: false
-  }
-];
+export { BUILT_IN_MATERIALS };
 
 // Helper to generate IDs
 export function generateUUID(): string {
@@ -69,7 +33,7 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
     rse: 0.04,
     layers: [
       { id: generateUUID(), material_id: "mat-brick-solid", thickness: 0.30 },
-      { id: generateUUID(), material_id: "mat-eps", thickness: 0.15 }
+      { id: generateUUID(), material_id: "mat-eps-70f", thickness: 0.15 }
     ]
   },
   {
@@ -80,7 +44,7 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
     rse: 0.04,
     layers: [
       { id: generateUUID(), material_id: "mat-reinforced-concrete", thickness: 0.20 },
-      { id: generateUUID(), material_id: "mat-mineral-wool", thickness: 0.24 }
+      { id: generateUUID(), material_id: "mat-mineral-wool-roll", thickness: 0.24 }
     ]
   },
   {

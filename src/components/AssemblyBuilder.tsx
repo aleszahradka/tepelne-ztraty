@@ -79,14 +79,13 @@ export const AssemblyBuilder: React.FC = () => {
   const getLayerColor = (materialId: string) => {
     const mat = materials.find(m => m.id === materialId);
     if (!mat) return 'bg-slate-300';
-    switch (mat.category) {
-      case 'Insulation': return 'bg-sky-200 border-sky-400 text-sky-800';
-      case 'Masonry': return 'bg-amber-200 border-amber-400 text-amber-800';
-      case 'Concrete': return 'bg-slate-300 border-slate-400 text-slate-800';
-      case 'Wood': return 'bg-orange-200 border-orange-400 text-orange-800';
-      case 'Plasters': return 'bg-yellow-100 border-yellow-300 text-yellow-800';
-      default: return 'bg-emerald-100 border-emerald-300 text-emerald-800';
-    }
+    const catEn = typeof mat.category === 'object' ? mat.category.en : mat.category;
+    if (catEn.includes('Insulation')) return 'bg-sky-200 border-sky-400 text-sky-800';
+    if (catEn.includes('Masonry') || catEn.includes('Blocks') || catEn.includes('Zdivo')) return 'bg-amber-200 border-amber-400 text-amber-800';
+    if (catEn.includes('Concrete') || catEn.includes('Mortar') || catEn.includes('Beton')) return 'bg-slate-300 border-slate-400 text-slate-800';
+    if (catEn.includes('Wood') || catEn.includes('Board') || catEn.includes('Dřevo')) return 'bg-orange-200 border-orange-400 text-orange-800';
+    if (catEn.includes('Plaster') || catEn.includes('Render') || catEn.includes('Omítk')) return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+    return 'bg-emerald-100 border-emerald-300 text-emerald-800';
   };
 
   return (
@@ -311,17 +310,28 @@ export const AssemblyBuilder: React.FC = () => {
                           const layerR = calculateLayerResistance(layer, materials);
                           return (
                             <div key={layer.id} className="grid grid-cols-12 gap-3 items-center px-2 py-1.5 hover:bg-slate-50 rounded-lg">
-                              {/* Material dropdown selection */}
+                              {/* Material dropdown selection grouped by category */}
                               <div className="col-span-5">
                                 <select
                                   value={layer.material_id}
                                   onChange={(e) => updateLayer(assembly.id, layer.id, { material_id: e.target.value })}
                                   className="w-full px-2 py-1 border border-slate-200 rounded text-xs bg-white text-slate-700"
                                 >
-                                  {materials.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                      {getLocalized(m.name)} (λ={m.design_thermal_conductivity})
-                                    </option>
+                                  {Object.entries(
+                                    materials.reduce<Record<string, typeof materials>>((acc, m) => {
+                                      const catName = getLocalized(m.category);
+                                      if (!acc[catName]) acc[catName] = [];
+                                      acc[catName].push(m);
+                                      return acc;
+                                    }, {})
+                                  ).map(([catGroup, groupMats]) => (
+                                    <optgroup key={catGroup} label={catGroup}>
+                                      {groupMats.map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                          {getLocalized(m.name)} (λ = {m.design_thermal_conductivity.toFixed(3)})
+                                        </option>
+                                      ))}
+                                    </optgroup>
                                   ))}
                                 </select>
                               </div>
