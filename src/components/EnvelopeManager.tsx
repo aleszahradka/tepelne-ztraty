@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useHeatLossStore, generateUUID } from '../store';
 import type { EnvelopeElement, AdjacentSpaceType } from '../types';
-import { calculateAssemblyUValue, calculateEffectiveUValue, calculateTransmissionLoss, calculateChildOpeningsArea, calculateNetArea, isNetAreaExceeded } from '../mathEngine';
-import { ShieldAlert, Plus, Trash2, Copy, HelpCircle, CornerDownRight, AlertTriangle } from 'lucide-react';
+import { calculateAssemblyUValue, calculateEffectiveUValue, calculateTransmissionLoss, calculateChildOpeningsArea, calculateNetArea, isNetAreaExceeded, calculateAbsoluteAzimuth, getAzimuthCardinalLabel } from '../mathEngine';
+import { ShieldAlert, Plus, Trash2, Copy, HelpCircle, CornerDownRight, AlertTriangle, Compass } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
 
 export const EnvelopeManager: React.FC = () => {
@@ -26,6 +26,8 @@ export const EnvelopeManager: React.FC = () => {
   const [newDeltaUTb, setNewDeltaUTb] = useState<number>(0.05);
   const [newParentElementId, setNewParentElementId] = useState<string>('');
   const [newRoomId, setNewRoomId] = useState<string>('');
+  const [newRelativeAngle, setNewRelativeAngle] = useState<number>(0);
+  const [newTilt, setNewTilt] = useState<number>(90);
 
   const [showHelper, setShowHelper] = useState(false);
 
@@ -65,7 +67,9 @@ export const EnvelopeManager: React.FC = () => {
       b_factor: newBFactor,
       delta_u_tb: newDeltaUTb,
       parent_element_id: newParentElementId || undefined,
-      room_id: newRoomId || undefined
+      room_id: newRoomId || undefined,
+      relative_angle: newRelativeAngle,
+      tilt: newTilt
     };
 
     addElement(newElement);
@@ -277,6 +281,65 @@ export const EnvelopeManager: React.FC = () => {
             />
           </div>
 
+          {/* Relative Angle */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.envelope.relativeAngle}</label>
+            <div className="flex gap-1">
+              <select
+                value={[0, 90, 180, 270].includes(newRelativeAngle) ? newRelativeAngle : 'custom'}
+                onChange={(e) => {
+                  if (e.target.value !== 'custom') {
+                    setNewRelativeAngle(parseInt(e.target.value, 10));
+                  }
+                }}
+                className="w-full px-2 py-2 border border-slate-200 rounded-md text-xs focus:ring-red-500 bg-white"
+              >
+                <option value={0}>{t.envelope.front}</option>
+                <option value={90}>{t.envelope.right}</option>
+                <option value={180}>{t.envelope.back}</option>
+                <option value={270}>{t.envelope.left}</option>
+                <option value="custom">Custom°</option>
+              </select>
+              <input
+                type="number"
+                min="0"
+                max="360"
+                value={newRelativeAngle}
+                onChange={(e) => setNewRelativeAngle(((parseFloat(e.target.value) || 0) % 360 + 360) % 360)}
+                className="w-16 px-1.5 py-2 border border-slate-200 rounded-md text-xs font-mono text-center"
+              />
+            </div>
+          </div>
+
+          {/* Tilt */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.envelope.tilt}</label>
+            <div className="flex gap-1">
+              <select
+                value={[90, 0, 45].includes(newTilt) ? newTilt : 'custom'}
+                onChange={(e) => {
+                  if (e.target.value !== 'custom') {
+                    setNewTilt(parseInt(e.target.value, 10));
+                  }
+                }}
+                className="w-full px-2 py-2 border border-slate-200 rounded-md text-xs focus:ring-red-500 bg-white"
+              >
+                <option value={90}>{t.envelope.verticalWall}</option>
+                <option value={0}>{t.envelope.flatRoof}</option>
+                <option value={45}>{t.envelope.pitchedRoof}</option>
+                <option value="custom">Custom°</option>
+              </select>
+              <input
+                type="number"
+                min="0"
+                max="180"
+                value={newTilt}
+                onChange={(e) => setNewTilt(Math.max(0, Math.min(180, parseFloat(e.target.value) || 0)))}
+                className="w-16 px-1.5 py-2 border border-slate-200 rounded-md text-xs font-mono text-center"
+              />
+            </div>
+          </div>
+
           {/* Parent Element Selector */}
           <div className="sm:col-span-1 md:col-span-2 xl:col-span-2">
             <label className="block text-xs font-medium text-slate-500 mb-1">
@@ -295,9 +358,6 @@ export const EnvelopeManager: React.FC = () => {
               ))}
             </select>
           </div>
-
-          {/* Blank column for spacing on large screens */}
-          <div className="sm:col-span-1 xl:col-span-2"></div>
 
           {/* Submit button */}
           <div className="sm:col-span-1 md:col-span-2 xl:col-span-2">
@@ -397,6 +457,76 @@ export const EnvelopeManager: React.FC = () => {
                             ))}
                           </select>
                         </div>
+                      </div>
+
+                      {/* 3D Geometry controls: Relative Angle, Tilt & Computed Azimuth */}
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] pt-1 mt-0.5 border-t border-slate-100" style={{ paddingLeft: `${depth * 16}px` }}>
+                        {/* Relative angle */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 font-medium">{t.envelope.relativeAngle}:</span>
+                          <select
+                            value={[0, 90, 180, 270].includes(element.relative_angle ?? 0) ? (element.relative_angle ?? 0) : 'custom'}
+                            onChange={(e) => {
+                              if (e.target.value !== 'custom') {
+                                updateElement(element.id, { relative_angle: parseInt(e.target.value, 10) });
+                              }
+                            }}
+                            className="bg-white border border-slate-200 rounded px-1 py-0.5 text-[11px] text-slate-700 outline-none"
+                          >
+                            <option value={0}>{t.envelope.front}</option>
+                            <option value={90}>{t.envelope.right}</option>
+                            <option value={180}>{t.envelope.back}</option>
+                            <option value={270}>{t.envelope.left}</option>
+                            <option value="custom">Custom°</option>
+                          </select>
+                          <input
+                            type="number"
+                            min="0"
+                            max="360"
+                            value={element.relative_angle ?? 0}
+                            onChange={(e) => updateElement(element.id, { relative_angle: ((parseFloat(e.target.value) || 0) % 360 + 360) % 360 })}
+                            className="w-11 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-center text-slate-700 font-mono font-medium"
+                          />
+                        </div>
+
+                        {/* Tilt */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 font-medium">{t.envelope.tilt}:</span>
+                          <select
+                            value={[90, 0, 45].includes(element.tilt ?? 90) ? (element.tilt ?? 90) : 'custom'}
+                            onChange={(e) => {
+                              if (e.target.value !== 'custom') {
+                                updateElement(element.id, { tilt: parseInt(e.target.value, 10) });
+                              }
+                            }}
+                            className="bg-white border border-slate-200 rounded px-1 py-0.5 text-[11px] text-slate-700 outline-none"
+                          >
+                            <option value={90}>{t.envelope.verticalWall}</option>
+                            <option value={0}>{t.envelope.flatRoof}</option>
+                            <option value={45}>{t.envelope.pitchedRoof}</option>
+                            <option value="custom">Custom°</option>
+                          </select>
+                          <input
+                            type="number"
+                            min="0"
+                            max="180"
+                            value={element.tilt ?? 90}
+                            onChange={(e) => updateElement(element.id, { tilt: Math.max(0, Math.min(180, parseFloat(e.target.value) || 0)) })}
+                            className="w-11 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-center text-slate-700 font-mono font-medium"
+                          />
+                        </div>
+
+                        {/* Computed Absolute Azimuth badge */}
+                        {(() => {
+                          const absAzimuth = calculateAbsoluteAzimuth(settings.building_orientation ?? 0, element.relative_angle ?? 0);
+                          const cardinal = getAzimuthCardinalLabel(absAzimuth, useHeatLossStore.getState().language);
+                          return (
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded text-indigo-700 font-mono text-[10px] font-bold" title={`${t.envelope.computedAzimuth} = (Severka ${settings.building_orientation ?? 0}° + Relativní ${element.relative_angle ?? 0}°) mod 360`}>
+                              <Compass className="w-3 h-3 text-indigo-500" />
+                              <span>{t.envelope.computedAzimuth}: {absAzimuth}° ({cardinal})</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </td>

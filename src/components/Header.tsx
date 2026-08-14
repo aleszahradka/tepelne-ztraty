@@ -15,9 +15,11 @@ export const Header: React.FC = () => {
   const handleSaveProject = () => {
     // Access store snapshot on demand without subscription
     const currentStore = useHeatLossStore.getState();
-    const stateToSave = {
+    const stateToSave: ProjectState = {
       materials: currentStore.materials,
       assemblies: currentStore.assemblies,
+      storeys: currentStore.storeys,
+      rooms: currentStore.rooms,
       envelope_elements: currentStore.envelope_elements,
       environmental_settings: currentStore.environmental_settings,
     };

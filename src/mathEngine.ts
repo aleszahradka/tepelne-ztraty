@@ -223,3 +223,39 @@ export function calculateTotalBuildingTransmissionLoss(
     0
   );
 }
+
+/**
+ * Calculates the absolute geometric azimuth angle (0°-360°) by adding building orientation (Severka)
+ * and relative wall angle: Absolute Azimuth = (building_orientation + relative_angle) mod 360
+ */
+export function calculateAbsoluteAzimuth(buildingOrientation: number = 0, relativeAngle: number = 0): number {
+  const total = (buildingOrientation + relativeAngle) % 360;
+  return total < 0 ? total + 360 : total;
+}
+
+/**
+ * Returns a human-readable compass direction label for a given azimuth angle.
+ */
+export function getAzimuthCardinalLabel(azimuth: number, lang: 'cs' | 'en' = 'cs'): string {
+  const norm = calculateAbsoluteAzimuth(azimuth, 0);
+
+  if (lang === 'cs') {
+    if (norm >= 337.5 || norm < 22.5) return 'Sever';
+    if (norm >= 22.5 && norm < 67.5) return 'Severovýchod';
+    if (norm >= 67.5 && norm < 112.5) return 'Východ';
+    if (norm >= 112.5 && norm < 157.5) return 'Jihovýchod';
+    if (norm >= 157.5 && norm < 202.5) return 'Jih';
+    if (norm >= 202.5 && norm < 247.5) return 'Jihozápad';
+    if (norm >= 247.5 && norm < 292.5) return 'Západ';
+    return 'Severozápad';
+  } else {
+    if (norm >= 337.5 || norm < 22.5) return 'North';
+    if (norm >= 22.5 && norm < 67.5) return 'Northeast';
+    if (norm >= 67.5 && norm < 112.5) return 'East';
+    if (norm >= 112.5 && norm < 157.5) return 'Southeast';
+    if (norm >= 157.5 && norm < 202.5) return 'South';
+    if (norm >= 202.5 && norm < 247.5) return 'Southwest';
+    if (norm >= 247.5 && norm < 292.5) return 'West';
+    return 'Northwest';
+  }
+}

@@ -38,6 +38,8 @@ export interface Room {
   area: number; // Floor area in m²
   height: number; // Clear ceiling height in meters (default 2.6)
   air_exchange_rate: number; // n in 1/h (default 0.5)
+  width?: number; // Optional geometric width in meters
+  length?: number; // Optional geometric length in meters
 }
 
 export interface EnvelopeElement {
@@ -50,6 +52,8 @@ export interface EnvelopeElement {
   delta_u_tb: number; // Thermal bridge penalty (ΔU_tb), default 0.05
   parent_element_id?: string; // Optional parent element ID for nested openings (windows/doors)
   room_id?: string; // Optional room ID linking element directly to a Room
+  relative_angle: number; // Relative angle (0° = Front, 90° = Right, 180° = Back, 270° = Left). Default 0
+  tilt: number; // Tilt angle (90° = Vertical Wall, 0° = Horizontal Roof/Floor, 45° = Pitched Roof). Default 90
 }
 
 export interface EnvironmentalSettings {
@@ -57,6 +61,7 @@ export interface EnvironmentalSettings {
   t_e: number; // Outdoor design temperature (°C)
   room_volume: number; // Building/room volume in m³
   air_exchange_rate: number; // n in 1/h (air changes per hour)
+  building_orientation: number; // Building North Orientation "Severka" (0° to 360°, where 0° = North, 90° = East, 180° = South, 270° = West). Default 0
 }
 
 export interface ProjectState {
