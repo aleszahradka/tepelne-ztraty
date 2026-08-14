@@ -208,8 +208,8 @@ export const en: Translations = {
     decoupled: "Decoupled Pinia / Zustand State"
   },
   viewer3d: {
-    title: "3D View",
-    desc: "Spatial visualization of building, rooms, and thermal heat loss envelope.",
+    title: "3D Modeling & Heatmap",
+    desc: "Interactive 3D building editor with automatic room contact adjacency calculations.",
     heatmapOverlay: "Heatmap Overlay",
     legendTitle: "U-Value Legend",
     greenLabel: "U ≤ 0.18 W/m²K (Highly insulated)",
@@ -218,6 +218,18 @@ export const en: Translations = {
     northArrow: "North Arrow",
     resetView: "Reset View",
     showGrid: "Show Grid",
-    wireframe: "Wireframe"
+    wireframe: "Wireframe",
+    modelingTitle: "3D Modeling",
+    contactArea: "Contact Area",
+    internalPartition: "Internal Partition",
+    gridSnapping: "Grid Snapping",
+    addWindowToSurface: "Add Window to Surface",
+    addDoorToSurface: "Add Door to Surface",
+    addRoom: "Add Room",
+    deleteSelected: "Delete Selected",
+    modeMove: "Move",
+    modeResize: "Resize",
+    modeView: "View Only",
+    cantileverOverhang: "Cantilever Overhang"
   }
 };

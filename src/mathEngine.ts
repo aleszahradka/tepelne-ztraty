@@ -1,4 +1,5 @@
-import type { Material, Layer, Assembly, EnvelopeElement, EnvironmentalSettings, Room } from './types';
+import type { Material, Layer, Assembly, EnvelopeElement, EnvironmentalSettings, Room, Storey } from './types';
+import { calculateAdjustedNetArea } from './spatialEngine';
 
 /**
  * Calculates the thermal resistance of a single layer: R = d / lambda
@@ -64,8 +65,13 @@ export function calculateChildOpeningsArea(
  */
 export function calculateNetArea(
   element: EnvelopeElement,
-  elements: EnvelopeElement[] = []
+  elements: EnvelopeElement[] = [],
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
+  if (rooms.length > 0) {
+    return calculateAdjustedNetArea(element, elements, rooms, storeys);
+  }
   const childOpeningsArea = calculateChildOpeningsArea(element.id, elements);
   return element.area - childOpeningsArea;
 }
@@ -92,7 +98,8 @@ export function calculateTransmissionLoss(
   materials: Material[],
   settings: EnvironmentalSettings,
   allElements: EnvelopeElement[] = [],
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
   const uEffective = calculateEffectiveUValue(element, assemblies, materials);
   let indoorTemp = settings.t_int;
@@ -103,7 +110,7 @@ export function calculateTransmissionLoss(
     }
   }
   const deltaT = indoorTemp - settings.t_e;
-  const netArea = calculateNetArea(element, allElements);
+  const netArea = calculateNetArea(element, allElements, rooms, storeys);
   const loss = netArea * uEffective * deltaT * element.b_factor;
   return loss > 0 ? loss : 0;
 }
@@ -139,11 +146,12 @@ export function calculateRoomTransmissionLoss(
   assemblies: Assembly[],
   materials: Material[],
   settings: EnvironmentalSettings,
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
   return elements
     .filter(e => e.room_id === roomId)
-    .reduce((sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms), 0);
+    .reduce((sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys), 0);
 }
 
 /**
@@ -155,9 +163,10 @@ export function calculateRoomTotalLoss(
   assemblies: Assembly[],
   materials: Material[],
   settings: EnvironmentalSettings,
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): { transmission: number; ventilation: number; total: number } {
-  const transmission = calculateRoomTransmissionLoss(room.id, elements, assemblies, materials, settings, rooms);
+  const transmission = calculateRoomTransmissionLoss(room.id, elements, assemblies, materials, settings, rooms, storeys);
   const ventilation = calculateRoomVentilationLoss(room, settings.t_e);
   return {
     transmission,
@@ -216,10 +225,11 @@ export function calculateTotalBuildingTransmissionLoss(
   assemblies: Assembly[],
   materials: Material[],
   settings: EnvironmentalSettings,
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
   return elements.reduce(
-    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms),
+    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys),
     0
   );
 }

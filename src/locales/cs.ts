@@ -206,8 +206,8 @@ export const cs = {
     decoupled: "Oddělený stav Pinia / Zustand"
   },
   viewer3d: {
-    title: "3D Pohled",
-    desc: "Prostorová vizualizace budovy, místností a tepelného zatížení obálky.",
+    title: "3D Modelování & Tepelná mapa",
+    desc: "Interaktivní 3D editor budovy s automatickým výpočtem stykových ploch a teplotních ztrát.",
     heatmapOverlay: "Tepelná mapa",
     legendTitle: "Krajina U-hodnot",
     greenLabel: "U ≤ 0,18 W/m²K (Výborně izolováno)",
@@ -216,7 +216,19 @@ export const cs = {
     northArrow: "Severka",
     resetView: "Obnovit pohled",
     showGrid: "Zobrazit mřížku",
-    wireframe: "Drátový model"
+    wireframe: "Drátový model",
+    modelingTitle: "3D Modelování",
+    contactArea: "Styková plocha",
+    internalPartition: "Vnitřní příčka",
+    gridSnapping: "Přichytávat k mřížce",
+    addWindowToSurface: "Přidat okno na stěnu",
+    addDoorToSurface: "Přidat dveře na stěnu",
+    addRoom: "Přidat místnost",
+    deleteSelected: "Smazat vybrané",
+    modeMove: "Posun",
+    modeResize: "Změna velikosti",
+    modeView: "Prohlížení",
+    cantileverOverhang: "Konzolový převis"
   }
 };
 export type Translations = typeof cs;
