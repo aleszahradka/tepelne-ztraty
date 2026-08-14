@@ -11,6 +11,7 @@ export const EnvelopeManager: React.FC = () => {
   const assemblies = useHeatLossStore((state) => state.assemblies);
   const materials = useHeatLossStore((state) => state.materials);
   const settings = useHeatLossStore((state) => state.environmental_settings);
+  const rooms = useHeatLossStore((state) => state.rooms);
 
   const addElement = useHeatLossStore((state) => state.addElement);
   const updateElement = useHeatLossStore((state) => state.updateElement);
@@ -24,6 +25,7 @@ export const EnvelopeManager: React.FC = () => {
   const [newBFactor, setNewBFactor] = useState<number>(1.0);
   const [newDeltaUTb, setNewDeltaUTb] = useState<number>(0.05);
   const [newParentElementId, setNewParentElementId] = useState<string>('');
+  const [newRoomId, setNewRoomId] = useState<string>('');
 
   const [showHelper, setShowHelper] = useState(false);
 
@@ -62,7 +64,8 @@ export const EnvelopeManager: React.FC = () => {
       adjacent_space_type: newAdjacentSpace,
       b_factor: newBFactor,
       delta_u_tb: newDeltaUTb,
-      parent_element_id: newParentElementId || undefined
+      parent_element_id: newParentElementId || undefined,
+      room_id: newRoomId || undefined
     };
 
     addElement(newElement);
@@ -81,7 +84,7 @@ export const EnvelopeManager: React.FC = () => {
 
   // Calculate total transmission loss for scaling visual bars
   const totalTransmissionLoss = elements.reduce(
-    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements),
+    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms),
     0
   );
 
@@ -178,6 +181,23 @@ export const EnvelopeManager: React.FC = () => {
               {assemblies.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} (U={calculateAssemblyUValue(a, materials).toFixed(2)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Assigned Room */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.envelope.assignedRoom}</label>
+            <select
+              value={newRoomId}
+              onChange={(e) => setNewRoomId(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-md text-xs focus:ring-red-500 focus:border-red-500 bg-white"
+            >
+              <option value="">{t.envelope.unassignedRoom}</option>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.t_int}°C)
                 </option>
               ))}
             </select>
@@ -290,7 +310,7 @@ export const EnvelopeManager: React.FC = () => {
 
               const renderRow = (element: EnvelopeElement, isChild: boolean = false) => {
                 const uEff = calculateEffectiveUValue(element, assemblies, materials);
-                const loss = calculateTransmissionLoss(element, assemblies, materials, settings, elements);
+                const loss = calculateTransmissionLoss(element, assemblies, materials, settings, elements, rooms);
                 const pctOfLoss = totalTransmissionLoss > 0 ? (loss / totalTransmissionLoss) * 100 : 0;
 
                 const openingsArea = calculateChildOpeningsArea(element.id, elements);
@@ -320,23 +340,41 @@ export const EnvelopeManager: React.FC = () => {
                           />
                         </div>
 
-                        {/* Inline parent selector */}
-                        <div className={`flex items-center gap-1.5 text-[11px] ${isChild ? 'ml-8' : ''}`}>
-                          <span className="text-slate-400 font-medium">{t.envelope.parentElement}:</span>
-                          <select
-                            value={element.parent_element_id || ''}
-                            onChange={(e) => updateElement(element.id, { parent_element_id: e.target.value || undefined })}
-                            className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-600 outline-none focus:ring-1 focus:ring-red-500"
-                          >
-                            <option value="">{t.envelope.noneStandalone}</option>
-                            {elements
-                              .filter(e => e.id !== element.id && e.parent_element_id !== element.id)
-                              .map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name}
+                        {/* Inline parent & room selectors */}
+                        <div className={`flex flex-wrap items-center gap-2 text-[11px] ${isChild ? 'ml-8' : ''}`}>
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400 font-medium">{t.envelope.parentElement}:</span>
+                            <select
+                              value={element.parent_element_id || ''}
+                              onChange={(e) => updateElement(element.id, { parent_element_id: e.target.value || undefined })}
+                              className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-600 outline-none focus:ring-1 focus:ring-red-500"
+                            >
+                              <option value="">{t.envelope.noneStandalone}</option>
+                              {elements
+                                .filter(e => e.id !== element.id && e.parent_element_id !== element.id)
+                                .map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400 font-medium">{t.envelope.assignedRoom}:</span>
+                            <select
+                              value={element.room_id || ''}
+                              onChange={(e) => updateElement(element.id, { room_id: e.target.value || undefined })}
+                              className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-600 outline-none focus:ring-1 focus:ring-red-500"
+                            >
+                              <option value="">{t.envelope.unassignedRoom}</option>
+                              {rooms.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name} ({r.t_int}°C)
                                 </option>
                               ))}
-                          </select>
+                            </select>
+                          </div>
                         </div>
                       </div>
                     </td>

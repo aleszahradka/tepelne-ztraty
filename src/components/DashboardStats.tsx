@@ -1,6 +1,11 @@
 import React from 'react';
 import { useHeatLossStore } from '../store';
-import { calculateTransmissionLoss, calculateVentilationLoss, calculateEffectiveUValue } from '../mathEngine';
+import {
+  calculateTransmissionLoss,
+  calculateEffectiveUValue,
+  calculateTotalBuildingTransmissionLoss,
+  calculateTotalBuildingVentilationLoss
+} from '../mathEngine';
 import { Flame, Layers, TrendingDown } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
 
@@ -10,18 +15,19 @@ export const DashboardStats: React.FC = () => {
   const assemblies = useHeatLossStore((state) => state.assemblies);
   const materials = useHeatLossStore((state) => state.materials);
   const settings = useHeatLossStore((state) => state.environmental_settings);
+  const rooms = useHeatLossStore((state) => state.rooms);
 
-  // Compute transmission losses per element and total
+  // Compute transmission losses per element
   const transmissionLosses = elements.map((el) => ({
     id: el.id,
     name: el.name,
-    loss: calculateTransmissionLoss(el, assemblies, materials, settings, elements),
+    loss: calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms),
     area: el.area,
     uEff: calculateEffectiveUValue(el, assemblies, materials)
   }));
 
-  const totalTransmission = transmissionLosses.reduce((sum, item) => sum + item.loss, 0);
-  const totalVentilation = calculateVentilationLoss(settings);
+  const totalTransmission = calculateTotalBuildingTransmissionLoss(elements, assemblies, materials, settings, rooms);
+  const totalVentilation = calculateTotalBuildingVentilationLoss(rooms, settings);
   const totalLoss = totalTransmission + totalVentilation;
 
   // Total Envelope Area
