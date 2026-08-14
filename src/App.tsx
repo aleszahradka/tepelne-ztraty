@@ -3,6 +3,7 @@ import { EnvironmentalSettingsPanel } from './components/EnvironmentalSettings';
 import { MaterialDatabase } from './components/MaterialDatabase';
 import { AssemblyBuilder } from './components/AssemblyBuilder';
 import { EnvelopeManager } from './components/EnvelopeManager';
+import { RoomManager } from './components/RoomManager';
 import { DashboardStats } from './components/DashboardStats';
 import { useTranslate } from './hooks/useTranslate';
 
@@ -36,8 +37,12 @@ function App() {
             </section>
           </div>
 
-          {/* Right Column: 1D Assembly builder & Envelope configuration */}
+          {/* Right Column: Hierarchy, Assemblies & Envelope configuration */}
           <div className="lg:col-span-8 space-y-6">
+            <section id="room-manager">
+              <RoomManager />
+            </section>
+
             <section id="assembly-builder">
               <AssemblyBuilder />
             </section>

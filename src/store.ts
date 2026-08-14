@@ -1,44 +1,8 @@
 import { create } from 'zustand';
-import type { Material, Assembly, EnvelopeElement, EnvironmentalSettings, ProjectState, Layer } from './types';
+import type { Material, Assembly, EnvelopeElement, EnvironmentalSettings, ProjectState, Layer, Storey, Room } from './types';
+import { BUILT_IN_MATERIALS } from './data/materials';
 
-// Standard mock materials as starting database
-export const BUILT_IN_MATERIALS: Material[] = [
-  {
-    id: "mat-brick-solid",
-    name: { cs: "Plná cihla", en: "Solid Clay Brick" },
-    category: { cs: "Zdivo", en: "Masonry" },
-    design_thermal_conductivity: 0.80,
-    is_custom: false
-  },
-  {
-    id: "mat-reinforced-concrete",
-    name: { cs: "Železobeton", en: "Reinforced Concrete" },
-    category: { cs: "Beton", en: "Concrete" },
-    design_thermal_conductivity: 1.58,
-    is_custom: false
-  },
-  {
-    id: "mat-mineral-wool",
-    name: { cs: "Minerální vata", en: "Mineral Wool" },
-    category: { cs: "Tepelná izolace", en: "Thermal Insulation" },
-    design_thermal_conductivity: 0.038,
-    is_custom: false
-  },
-  {
-    id: "mat-eps",
-    name: { cs: "Pěnový polystyren EPS", en: "Expanded Polystyrene (EPS)" },
-    category: { cs: "Tepelná izolace", en: "Thermal Insulation" },
-    design_thermal_conductivity: 0.035,
-    is_custom: false
-  },
-  {
-    id: "mat-gypsum-board",
-    name: { cs: "Sádrokartonová deska", en: "Gypsum Plasterboard" },
-    category: { cs: "Deskové materiály", en: "Plasterboards" },
-    design_thermal_conductivity: 0.22,
-    is_custom: false
-  }
-];
+export { BUILT_IN_MATERIALS };
 
 // Helper to generate IDs
 export function generateUUID(): string {
@@ -55,6 +19,40 @@ const DEFAULT_ENVIRONMENTAL_SETTINGS: EnvironmentalSettings = {
   air_exchange_rate: 0.5
 };
 
+// Initial storeys and rooms
+const defaultStoreyId = 'storey-1np';
+const INITIAL_STOREYS: Storey[] = [
+  {
+    id: defaultStoreyId,
+    name: '1.NP / Ground Floor',
+    level_z: 0
+  }
+];
+
+const livingRoomId = 'room-living-room';
+const bathroomId = 'room-bathroom';
+
+const INITIAL_ROOMS: Room[] = [
+  {
+    id: livingRoomId,
+    name: '1.01 Obývací pokoj / Living Room',
+    storey_id: defaultStoreyId,
+    area: 30,
+    height: 2.7,
+    t_int: 20,
+    air_exchange_rate: 0.5
+  },
+  {
+    id: bathroomId,
+    name: '1.02 Koupelna / Bathroom',
+    storey_id: defaultStoreyId,
+    area: 8,
+    height: 2.7,
+    t_int: 24,
+    air_exchange_rate: 1.5
+  }
+];
+
 // Initial demo assemblies
 const demoAssemblyWallId = 'asm-wall-insulated';
 const demoAssemblyRoofId = 'asm-roof-insulated';
@@ -69,7 +67,7 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
     rse: 0.04,
     layers: [
       { id: generateUUID(), material_id: "mat-brick-solid", thickness: 0.30 },
-      { id: generateUUID(), material_id: "mat-eps", thickness: 0.15 }
+      { id: generateUUID(), material_id: "mat-eps-70f", thickness: 0.15 }
     ]
   },
   {
@@ -80,7 +78,7 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
     rse: 0.04,
     layers: [
       { id: generateUUID(), material_id: "mat-reinforced-concrete", thickness: 0.20 },
-      { id: generateUUID(), material_id: "mat-mineral-wool", thickness: 0.24 }
+      { id: generateUUID(), material_id: "mat-mineral-wool-roll", thickness: 0.24 }
     ]
   },
   {
@@ -105,7 +103,8 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     assembly_id: demoAssemblyWallId,
     adjacent_space_type: "exterior",
     b_factor: 1.0,
-    delta_u_tb: 0.05
+    delta_u_tb: 0.05,
+    room_id: livingRoomId
   },
   {
     id: generateUUID(),
@@ -114,7 +113,8 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     assembly_id: demoAssemblyWallId,
     adjacent_space_type: "exterior",
     b_factor: 1.0,
-    delta_u_tb: 0.05
+    delta_u_tb: 0.05,
+    room_id: livingRoomId
   },
   {
     id: generateUUID(),
@@ -133,7 +133,8 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     adjacent_space_type: "exterior",
     b_factor: 1.0,
     delta_u_tb: 0.00,
-    parent_element_id: northWallId
+    parent_element_id: northWallId,
+    room_id: livingRoomId
   },
   {
     id: generateUUID(),
@@ -158,6 +159,8 @@ interface HeatLossState {
   assemblies: Assembly[];
   envelope_elements: EnvelopeElement[];
   environmental_settings: EnvironmentalSettings;
+  storeys: Storey[];
+  rooms: Room[];
 
   // Actions
   setLanguage: (lang: 'cs' | 'en') => void;
@@ -176,6 +179,14 @@ interface HeatLossState {
   updateElement: (id: string, updated: Partial<EnvelopeElement>) => void;
   deleteElement: (id: string) => void;
 
+  addStorey: (storey: Storey) => void;
+  updateStorey: (id: string, updated: Partial<Storey>) => void;
+  deleteStorey: (id: string) => void;
+
+  addRoom: (room: Room) => void;
+  updateRoom: (id: string, updated: Partial<Room>) => void;
+  deleteRoom: (id: string) => void;
+
   updateEnvironmentalSettings: (settings: Partial<EnvironmentalSettings>) => void;
 
   loadProject: (project: ProjectState) => void;
@@ -188,6 +199,8 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   assemblies: INITIAL_ASSEMBLIES,
   envelope_elements: INITIAL_ENVELOPE_ELEMENTS,
   environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
+  storeys: INITIAL_STOREYS,
+  rooms: INITIAL_ROOMS,
 
   // Language management
   setLanguage: (language) => set(() => {
@@ -263,7 +276,13 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   })),
 
   updateElement: (id, updated) => set((state) => ({
-    envelope_elements: state.envelope_elements.map((e) => (e.id === id ? { ...e, ...updated } : e))
+    envelope_elements: state.envelope_elements.map((e) => {
+      if (e.id !== id) return e;
+      const newElem = { ...e, ...updated };
+      if (updated.parent_element_id === '') newElem.parent_element_id = undefined;
+      if (updated.room_id === '') newElem.room_id = undefined;
+      return newElem;
+    })
   })),
 
   deleteElement: (id) => set((state) => ({
@@ -271,6 +290,42 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       .filter((e) => e.id !== id)
       .map((e) => (e.parent_element_id === id ? { ...e, parent_element_id: undefined } : e))
   })),
+
+  // Storeys
+  addStorey: (storey) => set((state) => ({
+    storeys: [...state.storeys, storey]
+  })),
+
+  updateStorey: (id, updated) => set((state) => ({
+    storeys: state.storeys.map((s) => (s.id === id ? { ...s, ...updated } : s))
+  })),
+
+  deleteStorey: (id) => set((state) => {
+    const updatedRooms = state.rooms.map((r) => (r.storey_id === id ? { ...r, storey_id: '' } : r));
+    return {
+      storeys: state.storeys.filter((s) => s.id !== id),
+      rooms: updatedRooms
+    };
+  }),
+
+  // Rooms
+  addRoom: (room) => set((state) => ({
+    rooms: [...state.rooms, room]
+  })),
+
+  updateRoom: (id, updated) => set((state) => ({
+    rooms: state.rooms.map((r) => (r.id === id ? { ...r, ...updated } : r))
+  })),
+
+  deleteRoom: (id) => set((state) => {
+    const updatedElements = state.envelope_elements.map((e) =>
+      e.room_id === id ? { ...e, room_id: undefined } : e
+    );
+    return {
+      rooms: state.rooms.filter((r) => r.id !== id),
+      envelope_elements: updatedElements
+    };
+  }),
 
   // Environmental Settings
   updateEnvironmentalSettings: (settings) => set((state) => ({
@@ -285,8 +340,7 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       category: typeof m.category === 'string' ? { cs: m.category, en: m.category } : m.category
     }));
 
-    // Merge loaded materials to avoid wiping out default ones if they were missing,
-    // and map over the arrays to ensure safe fallback structures.
+    // Merge loaded materials to avoid wiping out default ones if they were missing
     const mergedMaterials = [...BUILT_IN_MATERIALS];
     loadedMaterials.forEach((m) => {
       if (!mergedMaterials.some((bm) => bm.id === m.id)) {
@@ -298,7 +352,9 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       materials: mergedMaterials,
       assemblies: project.assemblies || [],
       envelope_elements: project.envelope_elements || [],
-      environmental_settings: project.environmental_settings || DEFAULT_ENVIRONMENTAL_SETTINGS
+      environmental_settings: project.environmental_settings || DEFAULT_ENVIRONMENTAL_SETTINGS,
+      storeys: project.storeys || INITIAL_STOREYS,
+      rooms: project.rooms || INITIAL_ROOMS
     };
   }),
 
@@ -306,6 +362,8 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
     materials: BUILT_IN_MATERIALS,
     assemblies: INITIAL_ASSEMBLIES,
     envelope_elements: INITIAL_ENVELOPE_ELEMENTS,
-    environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS
+    environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
+    storeys: INITIAL_STOREYS,
+    rooms: INITIAL_ROOMS
   }))
 }));

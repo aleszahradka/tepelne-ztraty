@@ -24,6 +24,22 @@ export interface Assembly {
 
 export type AdjacentSpaceType = 'exterior' | 'ground' | 'unheated' | 'custom';
 
+export interface Storey {
+  id: string; // Unique ID (UUID)
+  name: string; // e.g. "1.NP", "Podkroví"
+  level_z: number; // Height level in meters (e.g. 0.0, 2.8)
+}
+
+export interface Room {
+  id: string; // Unique ID (UUID)
+  name: string; // e.g. "Obývací pokoj", "Koupelna"
+  storey_id: string; // Links to Storey.id
+  t_int: number; // Indoor design temperature in °C (e.g. 21, 24, 15)
+  area: number; // Floor area in m²
+  height: number; // Clear ceiling height in meters (default 2.6)
+  air_exchange_rate: number; // n in 1/h (default 0.5)
+}
+
 export interface EnvelopeElement {
   id: string; // Unique ID
   name: string;
@@ -33,18 +49,21 @@ export interface EnvelopeElement {
   b_factor: number; // Temperature reduction factor
   delta_u_tb: number; // Thermal bridge penalty (ΔU_tb), default 0.05
   parent_element_id?: string; // Optional parent element ID for nested openings (windows/doors)
+  room_id?: string; // Optional room ID linking element directly to a Room
 }
 
 export interface EnvironmentalSettings {
-  t_int: number; // Indoor design temperature (°C)
+  t_int: number; // Global indoor design temperature (°C)
   t_e: number; // Outdoor design temperature (°C)
-  room_volume: number; // Room volume in m³
+  room_volume: number; // Building/room volume in m³
   air_exchange_rate: number; // n in 1/h (air changes per hour)
 }
 
 export interface ProjectState {
   materials: Material[];
   assemblies: Assembly[];
+  storeys?: Storey[];
+  rooms?: Room[];
   envelope_elements: EnvelopeElement[];
   environmental_settings: EnvironmentalSettings;
 }
