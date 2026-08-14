@@ -16,7 +16,8 @@ const DEFAULT_ENVIRONMENTAL_SETTINGS: EnvironmentalSettings = {
   t_int: 20,
   t_e: -15,
   room_volume: 150,
-  air_exchange_rate: 0.5
+  air_exchange_rate: 0.5,
+  building_orientation: 0
 };
 
 // Initial storeys and rooms
@@ -40,7 +41,9 @@ const INITIAL_ROOMS: Room[] = [
     area: 30,
     height: 2.7,
     t_int: 20,
-    air_exchange_rate: 0.5
+    air_exchange_rate: 0.5,
+    width: 5,
+    length: 6
   },
   {
     id: bathroomId,
@@ -49,7 +52,9 @@ const INITIAL_ROOMS: Room[] = [
     area: 8,
     height: 2.7,
     t_int: 24,
-    air_exchange_rate: 1.5
+    air_exchange_rate: 1.5,
+    width: 2.5,
+    length: 3.2
   }
 ];
 
@@ -104,7 +109,9 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     adjacent_space_type: "exterior",
     b_factor: 1.0,
     delta_u_tb: 0.05,
-    room_id: livingRoomId
+    room_id: livingRoomId,
+    relative_angle: 0,
+    tilt: 90
   },
   {
     id: generateUUID(),
@@ -114,7 +121,9 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     adjacent_space_type: "exterior",
     b_factor: 1.0,
     delta_u_tb: 0.05,
-    room_id: livingRoomId
+    room_id: livingRoomId,
+    relative_angle: 180,
+    tilt: 90
   },
   {
     id: generateUUID(),
@@ -123,7 +132,9 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     assembly_id: demoAssemblyRoofId,
     adjacent_space_type: "exterior",
     b_factor: 1.0,
-    delta_u_tb: 0.05
+    delta_u_tb: 0.05,
+    relative_angle: 0,
+    tilt: 0
   },
   {
     id: generateUUID(),
@@ -134,7 +145,9 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     b_factor: 1.0,
     delta_u_tb: 0.00,
     parent_element_id: northWallId,
-    room_id: livingRoomId
+    room_id: livingRoomId,
+    relative_angle: 0,
+    tilt: 90
   },
   {
     id: generateUUID(),
@@ -143,7 +156,9 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     assembly_id: demoAssemblyWallId, // placeholder
     adjacent_space_type: "ground",
     b_factor: 0.45,
-    delta_u_tb: 0.02
+    delta_u_tb: 0.02,
+    relative_angle: 0,
+    tilt: 0
   }
 ];
 
@@ -348,11 +363,27 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       }
     });
 
+    // Fallbacks for envelope elements
+    const loadedElements = (project.envelope_elements || []).map((e) => ({
+      ...e,
+      relative_angle: typeof e.relative_angle === 'number' ? e.relative_angle : 0,
+      tilt: typeof e.tilt === 'number' ? e.tilt : 90
+    }));
+
+    // Fallbacks for environmental settings
+    const loadedSettings: EnvironmentalSettings = {
+      ...DEFAULT_ENVIRONMENTAL_SETTINGS,
+      ...(project.environmental_settings || {}),
+      building_orientation: typeof project.environmental_settings?.building_orientation === 'number'
+        ? project.environmental_settings.building_orientation
+        : 0
+    };
+
     return {
       materials: mergedMaterials,
       assemblies: project.assemblies || [],
-      envelope_elements: project.envelope_elements || [],
-      environmental_settings: project.environmental_settings || DEFAULT_ENVIRONMENTAL_SETTINGS,
+      envelope_elements: loadedElements,
+      environmental_settings: loadedSettings,
       storeys: project.storeys || INITIAL_STOREYS,
       rooms: project.rooms || INITIAL_ROOMS
     };

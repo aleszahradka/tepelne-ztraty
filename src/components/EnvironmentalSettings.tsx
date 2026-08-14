@@ -1,6 +1,7 @@
 import React from 'react';
 import { useHeatLossStore } from '../store';
-import { Thermometer, Home, Wind, Info } from 'lucide-react';
+import { Thermometer, Home, Wind, Info, Compass } from 'lucide-react';
+import { getAzimuthCardinalLabel } from '../mathEngine';
 import { calculateVentilationLoss } from '../mathEngine';
 import { useTranslate } from '../hooks/useTranslate';
 
@@ -47,6 +48,85 @@ export const EnvironmentalSettingsPanel: React.FC = () => {
               onChange={(e) => updateSettings({ t_int: parseFloat(e.target.value) || 0 })}
               className="w-20 text-right px-2 py-1 text-sm border border-slate-200 rounded bg-slate-50"
             />
+          </div>
+        </div>
+
+        {/* Global Building North Orientation (Severka) */}
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
+              <Compass className="w-4 h-4 text-indigo-500" />
+              {t.environmental.buildingOrientation}
+            </label>
+            <span className="text-sm font-bold text-indigo-600">
+              {settings.building_orientation ?? 0}° ({getAzimuthCardinalLabel(settings.building_orientation ?? 0, useHeatLossStore.getState().language)})
+            </span>
+          </div>
+          <div className="flex gap-4 items-center mb-2">
+            <input
+              type="range"
+              min="0"
+              max="360"
+              step="1"
+              value={settings.building_orientation ?? 0}
+              onChange={(e) => updateSettings({ building_orientation: (parseFloat(e.target.value) || 0) % 360 })}
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            />
+            <input
+              type="number"
+              min="0"
+              max="360"
+              value={settings.building_orientation ?? 0}
+              onChange={(e) => updateSettings({ building_orientation: ((parseFloat(e.target.value) || 0) % 360 + 360) % 360 })}
+              className="w-20 text-right px-2 py-1 text-sm border border-slate-200 rounded bg-slate-50 font-bold text-indigo-600"
+            />
+          </div>
+          {/* Presets */}
+          <div className="grid grid-cols-4 gap-1.5">
+            <button
+              type="button"
+              onClick={() => updateSettings({ building_orientation: 0 })}
+              className={`py-1 text-xs font-semibold rounded border transition-colors ${
+                (settings.building_orientation ?? 0) === 0
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {t.environmental.north}
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings({ building_orientation: 90 })}
+              className={`py-1 text-xs font-semibold rounded border transition-colors ${
+                (settings.building_orientation ?? 0) === 90
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {t.environmental.east}
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings({ building_orientation: 180 })}
+              className={`py-1 text-xs font-semibold rounded border transition-colors ${
+                (settings.building_orientation ?? 0) === 180
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {t.environmental.south}
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings({ building_orientation: 270 })}
+              className={`py-1 text-xs font-semibold rounded border transition-colors ${
+                (settings.building_orientation ?? 0) === 270
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {t.environmental.west}
+            </button>
           </div>
         </div>
 

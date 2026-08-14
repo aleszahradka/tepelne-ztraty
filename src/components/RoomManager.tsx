@@ -29,10 +29,26 @@ export const RoomManager: React.FC = () => {
   // New Room state
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomStoreyId, setNewRoomStoreyId] = useState('');
+  const [newRoomWidth, setNewRoomWidth] = useState<number | ''>(5);
+  const [newRoomLength, setNewRoomLength] = useState<number | ''>(4);
   const [newRoomArea, setNewRoomArea] = useState<number>(20);
   const [newRoomHeight, setNewRoomHeight] = useState<number>(2.7);
   const [newRoomTInt, setNewRoomTInt] = useState<number>(20);
   const [newRoomAirExchange, setNewRoomAirExchange] = useState<number>(0.5);
+
+  const handleWidthChange = (val: number | '') => {
+    setNewRoomWidth(val);
+    if (typeof val === 'number' && val > 0 && typeof newRoomLength === 'number' && newRoomLength > 0) {
+      setNewRoomArea(Math.round(val * newRoomLength * 100) / 100);
+    }
+  };
+
+  const handleLengthChange = (val: number | '') => {
+    setNewRoomLength(val);
+    if (typeof val === 'number' && val > 0 && typeof newRoomWidth === 'number' && newRoomWidth > 0) {
+      setNewRoomArea(Math.round(val * newRoomWidth * 100) / 100);
+    }
+  };
 
   const handleCreateStorey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +75,9 @@ export const RoomManager: React.FC = () => {
       id: generateUUID(),
       name: newRoomName.trim(),
       storey_id: storeyId,
-      area: Math.max(1, newRoomArea),
+      width: typeof newRoomWidth === 'number' && newRoomWidth > 0 ? newRoomWidth : undefined,
+      length: typeof newRoomLength === 'number' && newRoomLength > 0 ? newRoomLength : undefined,
+      area: Math.max(0.1, newRoomArea),
       height: Math.max(1, newRoomHeight),
       t_int: newRoomTInt,
       air_exchange_rate: Math.max(0, newRoomAirExchange)
@@ -198,16 +216,40 @@ export const RoomManager: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.width}</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  placeholder="e.g. 5"
+                  value={newRoomWidth}
+                  onChange={(e) => handleWidthChange(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.length}</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  placeholder="e.g. 4"
+                  value={newRoomLength}
+                  onChange={(e) => handleLengthChange(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
+                />
+              </div>
               <div>
                 <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.area}</label>
                 <input
                   type="number"
-                  step="0.5"
-                  min="1"
+                  step="0.1"
+                  min="0.1"
                   value={newRoomArea}
-                  onChange={(e) => setNewRoomArea(Math.max(1, parseFloat(e.target.value) || 0))}
-                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono font-bold focus:ring-indigo-500"
+                  onChange={(e) => setNewRoomArea(Math.max(0.1, parseFloat(e.target.value) || 0))}
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono font-bold text-indigo-600 focus:ring-indigo-500"
                 />
               </div>
               <div>
@@ -289,6 +331,44 @@ export const RoomManager: React.FC = () => {
                         onChange={(e) => updateRoom(room.id, { name: e.target.value })}
                         className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 font-semibold text-slate-800 text-sm px-1 py-0.5 w-full outline-none"
                       />
+                      {/* Geometric dimensions width x length */}
+                      <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400 font-mono">
+                        <span>W:</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          placeholder="-"
+                          value={room.width ?? ''}
+                          onChange={(e) => {
+                            const w = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updates: Partial<Room> = { width: w };
+                            if (w && room.length) {
+                              updates.area = Math.round(w * room.length * 100) / 100;
+                            }
+                            updateRoom(room.id, updates);
+                          }}
+                          className="w-12 px-1 py-0.2 bg-white border border-slate-200 rounded text-center text-slate-700 font-semibold"
+                        />
+                        <span>m × L:</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          placeholder="-"
+                          value={room.length ?? ''}
+                          onChange={(e) => {
+                            const l = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updates: Partial<Room> = { length: l };
+                            if (l && room.width) {
+                              updates.area = Math.round(l * room.width * 100) / 100;
+                            }
+                            updateRoom(room.id, updates);
+                          }}
+                          className="w-12 px-1 py-0.2 bg-white border border-slate-200 rounded text-center text-slate-700 font-semibold"
+                        />
+                        <span>m</span>
+                      </div>
                     </td>
 
                     {/* Storey Selector */}
@@ -307,9 +387,20 @@ export const RoomManager: React.FC = () => {
                       </select>
                     </td>
 
-                    {/* Volume */}
+                    {/* Volume & Area editable */}
                     <td className="px-4 py-3 text-center font-mono text-xs text-slate-600 whitespace-nowrap">
-                      <span className="font-bold">{roomVolume.toFixed(1)}</span> m³
+                      <div className="flex items-center justify-center gap-1 mb-0.5">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          value={room.area}
+                          onChange={(e) => updateRoom(room.id, { area: Math.max(0.1, parseFloat(e.target.value) || 0) })}
+                          className="w-14 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-center font-bold text-indigo-600"
+                        />
+                        <span className="text-slate-400 font-sans text-[11px]">m²</span>
+                      </div>
+                      <span className="font-bold text-slate-700">{roomVolume.toFixed(1)}</span> m³
                       <span className="text-[10px] text-slate-400 block">
                         ({room.area}m² × {room.height}m)
                       </span>
