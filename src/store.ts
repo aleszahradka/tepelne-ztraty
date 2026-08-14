@@ -94,10 +94,12 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
   }
 ];
 
+const northWallId = generateUUID();
+
 // Initial demo envelope elements
 const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
   {
-    id: generateUUID(),
+    id: northWallId,
     name: "North Wall (External) / Severní stěna",
     area: 45.0,
     assembly_id: demoAssemblyWallId,
@@ -130,7 +132,8 @@ const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
     assembly_id: demoAssemblyWindowId,
     adjacent_space_type: "exterior",
     b_factor: 1.0,
-    delta_u_tb: 0.00
+    delta_u_tb: 0.00,
+    parent_element_id: northWallId
   },
   {
     id: generateUUID(),
@@ -264,7 +267,9 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   })),
 
   deleteElement: (id) => set((state) => ({
-    envelope_elements: state.envelope_elements.filter((e) => e.id !== id)
+    envelope_elements: state.envelope_elements
+      .filter((e) => e.id !== id)
+      .map((e) => (e.parent_element_id === id ? { ...e, parent_element_id: undefined } : e))
   })),
 
   // Environmental Settings

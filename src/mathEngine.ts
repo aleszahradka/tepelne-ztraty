@@ -48,18 +48,53 @@ export function calculateEffectiveUValue(
 }
 
 /**
- * Calculates transmission heat loss for an envelope element:
- * Phi_T = Area * U_effective * (t_int - t_e) * b
+ * Calculates total gross area of child openings linked to a parent element.
+ */
+export function calculateChildOpeningsArea(
+  parentElementId: string,
+  elements: EnvelopeElement[]
+): number {
+  return elements
+    .filter(e => e.parent_element_id === parentElementId)
+    .reduce((sum, child) => sum + child.area, 0);
+}
+
+/**
+ * Calculates the Net Area (A_net) of an envelope element by subtracting child openings area.
+ */
+export function calculateNetArea(
+  element: EnvelopeElement,
+  elements: EnvelopeElement[] = []
+): number {
+  const childOpeningsArea = calculateChildOpeningsArea(element.id, elements);
+  return element.area - childOpeningsArea;
+}
+
+/**
+ * Checks if the net area of a parent element is negative (openings exceed parent area).
+ */
+export function isNetAreaExceeded(
+  element: EnvelopeElement,
+  elements: EnvelopeElement[] = []
+): boolean {
+  return calculateNetArea(element, elements) < 0;
+}
+
+/**
+ * Calculates transmission heat loss for an envelope element using its Net Area (A_net):
+ * Phi_T = A_net * U_effective * (t_int - t_e) * b
  */
 export function calculateTransmissionLoss(
   element: EnvelopeElement,
   assemblies: Assembly[],
   materials: Material[],
-  settings: EnvironmentalSettings
+  settings: EnvironmentalSettings,
+  allElements: EnvelopeElement[] = []
 ): number {
   const uEffective = calculateEffectiveUValue(element, assemblies, materials);
   const deltaT = settings.t_int - settings.t_e;
-  return element.area * uEffective * deltaT * element.b_factor;
+  const netArea = calculateNetArea(element, allElements);
+  return netArea * uEffective * deltaT * element.b_factor;
 }
 
 /**

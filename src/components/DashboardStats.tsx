@@ -15,7 +15,7 @@ export const DashboardStats: React.FC = () => {
   const transmissionLosses = elements.map((el) => ({
     id: el.id,
     name: el.name,
-    loss: calculateTransmissionLoss(el, assemblies, materials, settings),
+    loss: calculateTransmissionLoss(el, assemblies, materials, settings, elements),
     area: el.area,
     uEff: calculateEffectiveUValue(el, assemblies, materials)
   }));
