@@ -41,6 +41,8 @@ export const cs = {
     area: "Plocha (m²)",
     width: "Šířka (m)",
     length: "Délka (m)",
+    posX: "Posun X (m)",
+    posY: "Posun Y (m)",
     height: "Světlá výška (m)",
     volume: "Objem (m³)",
     tInt: "Vnitřní teplota (°C)",
@@ -202,6 +204,19 @@ export const cs = {
     text: "Tepelné ztráty budovy. Připraveno pro 3D barevné teplotní mapy v WebGL.",
     method: "Metoda výpočtu EN 12831",
     decoupled: "Oddělený stav Pinia / Zustand"
+  },
+  viewer3d: {
+    title: "3D Pohled",
+    desc: "Prostorová vizualizace budovy, místností a tepelného zatížení obálky.",
+    heatmapOverlay: "Tepelná mapa",
+    legendTitle: "Krajina U-hodnot",
+    greenLabel: "U ≤ 0,18 W/m²K (Výborně izolováno)",
+    yellowLabel: "0,18 < U ≤ 0,50 W/m²K (Standardní izolace)",
+    redLabel: "U > 0,50 W/m²K / Okna (Vysoká ztráta)",
+    northArrow: "Severka",
+    resetView: "Obnovit pohled",
+    showGrid: "Zobrazit mřížku",
+    wireframe: "Drátový model"
   }
 };
 export type Translations = typeof cs;

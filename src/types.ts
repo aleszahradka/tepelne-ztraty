@@ -40,6 +40,8 @@ export interface Room {
   air_exchange_rate: number; // n in 1/h (default 0.5)
   width?: number; // Optional geometric width in meters
   length?: number; // Optional geometric length in meters
+  pos_x?: number; // Offset X in meters on the storey plane, default 0
+  pos_y?: number; // Offset Y in meters on the storey plane, default 0
 }
 
 export interface EnvelopeElement {

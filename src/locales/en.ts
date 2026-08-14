@@ -43,6 +43,8 @@ export const en: Translations = {
     area: "Area (m²)",
     width: "Width (m)",
     length: "Length (m)",
+    posX: "Offset X (m)",
+    posY: "Offset Y (m)",
     height: "Clear Height (m)",
     volume: "Volume (m³)",
     tInt: "Indoor Temp (°C)",
@@ -204,5 +206,18 @@ export const en: Translations = {
     text: "Building Heat Loss Calculator. Prepared for 3D color-coded WebGL heatmap overlays.",
     method: "EN 12831 Calculation Method",
     decoupled: "Decoupled Pinia / Zustand State"
+  },
+  viewer3d: {
+    title: "3D View",
+    desc: "Spatial visualization of building, rooms, and thermal heat loss envelope.",
+    heatmapOverlay: "Heatmap Overlay",
+    legendTitle: "U-Value Legend",
+    greenLabel: "U ≤ 0.18 W/m²K (Highly insulated)",
+    yellowLabel: "0.18 < U ≤ 0.50 W/m²K (Standard insulation)",
+    redLabel: "U > 0.50 W/m²K / Windows (High loss)",
+    northArrow: "North Arrow",
+    resetView: "Reset View",
+    showGrid: "Show Grid",
+    wireframe: "Wireframe"
   }
 };

@@ -5,6 +5,7 @@ import { AssemblyBuilder } from './components/AssemblyBuilder';
 import { EnvelopeManager } from './components/EnvelopeManager';
 import { RoomManager } from './components/RoomManager';
 import { DashboardStats } from './components/DashboardStats';
+import { BuildingViewer3D } from './components/BuildingViewer3D';
 import { useTranslate } from './hooks/useTranslate';
 
 function App() {
@@ -21,6 +22,11 @@ function App() {
         {/* Real-time Dashboard Summary Statistics */}
         <section id="results-dashboard">
           <DashboardStats />
+        </section>
+
+        {/* 3D Building WebGL Viewport & Thermal Heatmap */}
+        <section id="building-viewer-3d">
+          <BuildingViewer3D />
         </section>
 
         {/* Dynamic 2-Column Physical Grid Layout */}

@@ -43,7 +43,9 @@ const INITIAL_ROOMS: Room[] = [
     t_int: 20,
     air_exchange_rate: 0.5,
     width: 5,
-    length: 6
+    length: 6,
+    pos_x: 0,
+    pos_y: 0
   },
   {
     id: bathroomId,
@@ -54,7 +56,9 @@ const INITIAL_ROOMS: Room[] = [
     t_int: 24,
     air_exchange_rate: 1.5,
     width: 2.5,
-    length: 3.2
+    length: 3.2,
+    pos_x: 5,
+    pos_y: 0
   }
 ];
 
