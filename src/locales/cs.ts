@@ -153,6 +153,7 @@ export const cs = {
     adjacentSpace: "Sousedící prostor",
     assignedRoom: "Přiřazená místnost",
     unassignedRoom: "Nepřiřazeno (Globální teplota)",
+    unassignedGroup: "Nepřiřazené prvky obálky",
     bFactor: "Faktor b",
     bridgePenalty: "Mosty ΔU_tb",
     addBtn: "Přidat plochu do obálky",

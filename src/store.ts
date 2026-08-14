@@ -276,7 +276,13 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   })),
 
   updateElement: (id, updated) => set((state) => ({
-    envelope_elements: state.envelope_elements.map((e) => (e.id === id ? { ...e, ...updated } : e))
+    envelope_elements: state.envelope_elements.map((e) => {
+      if (e.id !== id) return e;
+      const newElem = { ...e, ...updated };
+      if (updated.parent_element_id === '') newElem.parent_element_id = undefined;
+      if (updated.room_id === '') newElem.room_id = undefined;
+      return newElem;
+    })
   })),
 
   deleteElement: (id) => set((state) => ({
@@ -295,7 +301,6 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   })),
 
   deleteStorey: (id) => set((state) => {
-    // Rooms belonging to this storey will have storey_id set to '' or deleted
     const updatedRooms = state.rooms.map((r) => (r.storey_id === id ? { ...r, storey_id: '' } : r));
     return {
       storeys: state.storeys.filter((s) => s.id !== id),
@@ -313,7 +318,6 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   })),
 
   deleteRoom: (id) => set((state) => {
-    // Elements assigned to this room should have room_id cleared
     const updatedElements = state.envelope_elements.map((e) =>
       e.room_id === id ? { ...e, room_id: undefined } : e
     );

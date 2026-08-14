@@ -155,6 +155,7 @@ export const en: Translations = {
     adjacentSpace: "Adjacent Space",
     assignedRoom: "Assigned Room",
     unassignedRoom: "Unassigned (Default Temp)",
+    unassignedGroup: "Unassigned Envelope Elements",
     bFactor: "b-Factor",
     bridgePenalty: "Bridge Penalty ΔU_tb",
     addBtn: "Add Surface to Envelope",
