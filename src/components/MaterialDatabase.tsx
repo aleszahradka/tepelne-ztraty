@@ -5,10 +5,17 @@ import { useTranslate } from '../hooks/useTranslate';
 import type { Material } from '../types';
 
 export const MaterialDatabase: React.FC = () => {
-  const { t } = useTranslate();
+  const { t, getLocalized } = useTranslate();
   const materials = useHeatLossStore((state) => state.materials);
   const addMaterial = useHeatLossStore((state) => state.addMaterial);
   const deleteMaterial = useHeatLossStore((state) => state.deleteMaterial);
+
+  const displayCategory = (m: Material) => {
+    if (typeof m.category === 'object' && m.category !== null) {
+      return getLocalized(m.category);
+    }
+    return t.materials.categories[m.category as keyof typeof t.materials.categories] || m.category;
+  };
 
   // Form states
   const [name, setName] = useState('');
@@ -35,10 +42,10 @@ export const MaterialDatabase: React.FC = () => {
   };
 
   const filteredMaterials = materials.filter(m => {
-    const translatedCat = t.materials.categories[m.category as keyof typeof t.materials.categories] || m.category;
-    return m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           m.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           translatedCat.toLowerCase().includes(searchTerm.toLowerCase());
+    const nameStr = getLocalized(m.name);
+    const catStr = displayCategory(m);
+    return nameStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           catStr.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   return (
@@ -93,7 +100,7 @@ export const MaterialDatabase: React.FC = () => {
           <div key={material.id} className="p-3 flex items-center justify-between text-sm hover:bg-slate-50 transition-colors">
             <div>
               <div className="font-semibold text-slate-800 flex items-center gap-2">
-                {material.name}
+                {getLocalized(material.name)}
                 {!material.is_custom && (
                   <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-normal">
                     {t.materials.builtinBadge}
@@ -106,7 +113,7 @@ export const MaterialDatabase: React.FC = () => {
                 )}
               </div>
               <div className="text-xs text-slate-400 mt-0.5">
-                {t.materials.categories[material.category as keyof typeof t.materials.categories] || material.category}
+                {displayCategory(material)}
               </div>
             </div>
             <div className="flex items-center gap-3">

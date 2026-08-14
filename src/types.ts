@@ -1,7 +1,7 @@
 export interface Material {
   id: string; // Unique ID for material
-  name: string;
-  category: string;
+  name: string | { cs: string; en: string };
+  category: string | { cs: string; en: string };
   design_thermal_conductivity: number; // λ_u in W/(m·K)
   is_custom: boolean; // True if created by user
 }

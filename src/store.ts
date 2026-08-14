@@ -5,36 +5,36 @@ import type { Material, Assembly, EnvelopeElement, EnvironmentalSettings, Projec
 export const BUILT_IN_MATERIALS: Material[] = [
   {
     id: "mat-brick-solid",
-    name: "Solid Clay Brick (Plná cihla)",
-    category: "Masonry",
+    name: { cs: "Plná cihla", en: "Solid Clay Brick" },
+    category: { cs: "Zdivo", en: "Masonry" },
     design_thermal_conductivity: 0.80,
     is_custom: false
   },
   {
     id: "mat-reinforced-concrete",
-    name: "Reinforced Concrete (Železobeton)",
-    category: "Concrete",
+    name: { cs: "Železobeton", en: "Reinforced Concrete" },
+    category: { cs: "Beton", en: "Concrete" },
     design_thermal_conductivity: 1.58,
     is_custom: false
   },
   {
     id: "mat-mineral-wool",
-    name: "Mineral Wool (Minerální vata)",
-    category: "Insulation",
+    name: { cs: "Minerální vata", en: "Mineral Wool" },
+    category: { cs: "Tepelná izolace", en: "Thermal Insulation" },
     design_thermal_conductivity: 0.038,
     is_custom: false
   },
   {
     id: "mat-eps",
-    name: "Expanded Polystyrene (EPS)",
-    category: "Insulation",
+    name: { cs: "Pěnový polystyren EPS", en: "Expanded Polystyrene (EPS)" },
+    category: { cs: "Tepelná izolace", en: "Thermal Insulation" },
     design_thermal_conductivity: 0.035,
     is_custom: false
   },
   {
     id: "mat-gypsum-board",
-    name: "Gypsum Plasterboard (Sádrokarton)",
-    category: "Plasterboards",
+    name: { cs: "Sádrokartonová deska", en: "Gypsum Plasterboard" },
+    category: { cs: "Deskové materiály", en: "Plasterboards" },
     design_thermal_conductivity: 0.22,
     is_custom: false
   }
@@ -195,9 +195,16 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   }),
 
   // Materials
-  addMaterial: (material) => set((state) => ({
-    materials: [...state.materials, material]
-  })),
+  addMaterial: (material) => set((state) => {
+    const formatted: Material = {
+      ...material,
+      name: typeof material.name === 'string' ? { cs: material.name, en: material.name } : material.name,
+      category: typeof material.category === 'string' ? { cs: material.category, en: material.category } : material.category
+    };
+    return {
+      materials: [...state.materials, formatted]
+    };
+  }),
 
   deleteMaterial: (id) => set((state) => ({
     materials: state.materials.filter((m) => m.id !== id || !m.is_custom) // Cannot delete built-in materials
@@ -267,10 +274,16 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
 
   // Project Management
   loadProject: (project) => set(() => {
+    const loadedMaterials = (project.materials || []).map((m) => ({
+      ...m,
+      name: typeof m.name === 'string' ? { cs: m.name, en: m.name } : m.name,
+      category: typeof m.category === 'string' ? { cs: m.category, en: m.category } : m.category
+    }));
+
     // Merge loaded materials to avoid wiping out default ones if they were missing,
     // and map over the arrays to ensure safe fallback structures.
     const mergedMaterials = [...BUILT_IN_MATERIALS];
-    project.materials.forEach((m) => {
+    loadedMaterials.forEach((m) => {
       if (!mergedMaterials.some((bm) => bm.id === m.id)) {
         mergedMaterials.push(m);
       }

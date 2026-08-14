@@ -6,7 +6,7 @@ import { Layers, Plus, Trash2, Eye } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
 
 export const AssemblyBuilder: React.FC = () => {
-  const { t } = useTranslate();
+  const { t, getLocalized } = useTranslate();
   const assemblies = useHeatLossStore((state) => state.assemblies);
   const materials = useHeatLossStore((state) => state.materials);
 
@@ -203,6 +203,19 @@ export const AssemblyBuilder: React.FC = () => {
               {/* Assembly Detail Editor */}
               {isActive && (
                 <div className="p-4 border-t border-slate-200 bg-white rounded-b-xl space-y-4">
+                  {/* Name Editor Block */}
+                  <div className="p-3 bg-indigo-50/40 rounded-lg border border-indigo-100/50">
+                    <label className="block text-[10px] font-bold text-indigo-700 uppercase tracking-wider mb-1">
+                      {t.assemblies.assemblyName}
+                    </label>
+                    <input
+                      type="text"
+                      value={assembly.name}
+                      onChange={(e) => updateAssembly(assembly.id, { name: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-bold text-slate-800 bg-white focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+
                   {/* Surface Resistances Inputs */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/50 p-3 rounded-lg border border-slate-100">
                     <div>
@@ -265,16 +278,17 @@ export const AssemblyBuilder: React.FC = () => {
                               // calculate percentage width relative to total thickness
                               const totalThick = assembly.layers.reduce((sum, l) => sum + l.thickness, 0);
                               const pctWidth = totalThick > 0 ? (layer.thickness / totalThick) * 100 : 0;
+                              const matName = mat ? getLocalized(mat.name) : 'Unknown';
 
                               return (
                                 <div
                                   key={layer.id}
                                   style={{ width: `${pctWidth}%` }}
                                   className={`h-full border-r last:border-r-0 flex items-center justify-center text-[10px] font-bold overflow-hidden px-1 transition-all ${getLayerColor(layer.material_id)}`}
-                                  title={`${mat?.name || 'Unknown'}: ${(layer.thickness * 100).toFixed(0)}cm`}
+                                  title={`${matName}: ${(layer.thickness * 100).toFixed(0)}cm`}
                                 >
                                   <span className="truncate">
-                                    {mat?.name || 'Unknown'} ({(layer.thickness * 100).toFixed(0)}cm)
+                                    {matName} ({(layer.thickness * 100).toFixed(0)}cm)
                                   </span>
                                 </div>
                               );
@@ -306,7 +320,7 @@ export const AssemblyBuilder: React.FC = () => {
                                 >
                                   {materials.map((m) => (
                                     <option key={m.id} value={m.id}>
-                                      {m.name} (λ={m.design_thermal_conductivity})
+                                      {getLocalized(m.name)} (λ={m.design_thermal_conductivity})
                                     </option>
                                   ))}
                                 </select>
