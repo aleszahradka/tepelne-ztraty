@@ -3,8 +3,10 @@ import { useHeatLossStore, generateUUID } from '../store';
 import type { Assembly, Layer } from '../types';
 import { calculateAssemblyUValue, calculateLayerResistance } from '../mathEngine';
 import { Layers, Plus, Trash2, Eye } from 'lucide-react';
+import { useTranslate } from '../hooks/useTranslate';
 
 export const AssemblyBuilder: React.FC = () => {
+  const { t, getLocalized } = useTranslate();
   const assemblies = useHeatLossStore((state) => state.assemblies);
   const materials = useHeatLossStore((state) => state.materials);
 
@@ -91,19 +93,19 @@ export const AssemblyBuilder: React.FC = () => {
     <div className="bg-white rounded-xl shadow-md p-6 border border-slate-100 h-full">
       <div className="flex items-center gap-2 mb-4">
         <Layers className="text-indigo-600 w-6 h-6" />
-        <h2 className="text-xl font-bold text-slate-800">Construction Assemblies (1D U-Value)</h2>
+        <h2 className="text-xl font-bold text-slate-800">{t.assemblies.title}</h2>
       </div>
 
       <p className="text-slate-500 text-sm mb-6">
-        Create multi-layer construction stacks (walls, roofs, floors) or specify windows/doors with direct U-value overrides.
+        {t.assemblies.desc}
       </p>
 
       {/* Assembly Creator */}
       <form onSubmit={handleCreateAssembly} className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100">
-        <h3 className="text-sm font-bold text-slate-700 mb-3">Create New Assembly</h3>
+        <h3 className="text-sm font-bold text-slate-700 mb-3">{t.assemblies.addAssemblyTitle}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Assembly Name</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.assemblies.assemblyName}</label>
             <input
               type="text"
               required
@@ -115,18 +117,18 @@ export const AssemblyBuilder: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Construction Type</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.assemblies.constType}</label>
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value as Assembly['type'])}
               className="w-full px-3 py-2 border border-slate-200 rounded-md text-xs focus:ring-indigo-500 focus:border-indigo-500 bg-white"
             >
-              <option value="wall">External Wall</option>
-              <option value="roof">Roof / Ceiling</option>
-              <option value="floor">Floor on Ground</option>
-              <option value="window">Window (Direct U-value)</option>
-              <option value="door">External Door (Direct U-value)</option>
-              <option value="custom">Custom Stacking</option>
+              <option value="wall">{t.assemblies.types.wall}</option>
+              <option value="roof">{t.assemblies.types.roof}</option>
+              <option value="floor">{t.assemblies.types.floor}</option>
+              <option value="window">{t.assemblies.types.window}</option>
+              <option value="door">{t.assemblies.types.door}</option>
+              <option value="custom">{t.assemblies.types.custom}</option>
             </select>
           </div>
 
@@ -136,7 +138,7 @@ export const AssemblyBuilder: React.FC = () => {
             className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors h-[34px]"
           >
             <Plus className="w-4 h-4" />
-            Add Assembly
+            {t.assemblies.addAssemblyBtn}
           </button>
         </div>
       </form>
@@ -167,19 +169,19 @@ export const AssemblyBuilder: React.FC = () => {
                     assembly.type === 'floor' ? 'bg-emerald-100 text-emerald-800' :
                     'bg-slate-100 text-slate-800'
                   }`}>
-                    {assembly.type}
+                    {t.assemblies.types[assembly.type] || assembly.type}
                   </span>
                   <div>
                     <h4 className="font-bold text-slate-800 text-sm md:text-base">{assembly.name}</h4>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {isDirectUValue ? 'Direct U-value construction' : `${assembly.layers.length} structural layers`}
+                      {isDirectUValue ? t.assemblies.directBadge : `${assembly.layers.length} ${t.assemblies.layersBadge}`}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <span className="text-xs text-slate-400 block font-medium">U-Value:</span>
+                    <span className="text-xs text-slate-400 block font-medium">{t.assemblies.uValue}:</span>
                     <span className="text-base font-extrabold text-indigo-600 font-mono">
                       {calculatedU.toFixed(3)} <span className="text-xs font-normal">W/(m²K)</span>
                     </span>
@@ -191,7 +193,7 @@ export const AssemblyBuilder: React.FC = () => {
                       if (activeAssemblyId === assembly.id) setActiveAssemblyId(null);
                     }}
                     className="text-slate-400 hover:text-red-500 p-1.5 rounded hover:bg-slate-100 transition-colors shrink-0"
-                    title="Delete Assembly"
+                    title={t.assemblies.deleteTooltip}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -201,11 +203,24 @@ export const AssemblyBuilder: React.FC = () => {
               {/* Assembly Detail Editor */}
               {isActive && (
                 <div className="p-4 border-t border-slate-200 bg-white rounded-b-xl space-y-4">
+                  {/* Name Editor Block */}
+                  <div className="p-3 bg-indigo-50/40 rounded-lg border border-indigo-100/50">
+                    <label className="block text-[10px] font-bold text-indigo-700 uppercase tracking-wider mb-1">
+                      {t.assemblies.assemblyName}
+                    </label>
+                    <input
+                      type="text"
+                      value={assembly.name}
+                      onChange={(e) => updateAssembly(assembly.id, { name: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-bold text-slate-800 bg-white focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+
                   {/* Surface Resistances Inputs */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/50 p-3 rounded-lg border border-slate-100">
                     <div>
                       <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                        R_si (Internal Surface)
+                        {t.assemblies.rsi}
                       </label>
                       <input
                         type="number"
@@ -218,7 +233,7 @@ export const AssemblyBuilder: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                        R_se (External Surface)
+                        {t.assemblies.rse}
                       </label>
                       <input
                         type="number"
@@ -234,7 +249,7 @@ export const AssemblyBuilder: React.FC = () => {
                     {isDirectUValue && (
                       <div className="col-span-2">
                         <label className="block text-[10px] font-semibold text-slate-500 mb-1 text-indigo-600">
-                          Direct Assembly U-Value
+                          {t.assemblies.directUValLabel}
                         </label>
                         <input
                           type="number"
@@ -255,7 +270,7 @@ export const AssemblyBuilder: React.FC = () => {
                       {assembly.layers.length > 0 && (
                         <div>
                           <span className="text-xs font-bold text-slate-600 flex items-center gap-1 mb-2">
-                            <Eye className="w-4 h-4 text-slate-400" /> Layer Profile Preview (Proportional Thickness)
+                            <Eye className="w-4 h-4 text-slate-400" /> {t.assemblies.profilePreview}
                           </span>
                           <div className="h-10 w-full flex rounded-lg overflow-hidden border border-slate-200 shadow-inner">
                             {assembly.layers.map((layer) => {
@@ -263,16 +278,17 @@ export const AssemblyBuilder: React.FC = () => {
                               // calculate percentage width relative to total thickness
                               const totalThick = assembly.layers.reduce((sum, l) => sum + l.thickness, 0);
                               const pctWidth = totalThick > 0 ? (layer.thickness / totalThick) * 100 : 0;
+                              const matName = mat ? getLocalized(mat.name) : 'Unknown';
 
                               return (
                                 <div
                                   key={layer.id}
                                   style={{ width: `${pctWidth}%` }}
                                   className={`h-full border-r last:border-r-0 flex items-center justify-center text-[10px] font-bold overflow-hidden px-1 transition-all ${getLayerColor(layer.material_id)}`}
-                                  title={`${mat?.name || 'Unknown'}: ${(layer.thickness * 100).toFixed(0)}cm`}
+                                  title={`${matName}: ${(layer.thickness * 100).toFixed(0)}cm`}
                                 >
                                   <span className="truncate">
-                                    {mat?.name || 'Unknown'} ({(layer.thickness * 100).toFixed(0)}cm)
+                                    {matName} ({(layer.thickness * 100).toFixed(0)}cm)
                                   </span>
                                 </div>
                               );
@@ -283,9 +299,9 @@ export const AssemblyBuilder: React.FC = () => {
 
                       {/* Header row for layer table */}
                       <div className="text-xs font-bold text-slate-400 grid grid-cols-12 gap-3 px-2 border-b border-slate-100 pb-2">
-                        <div className="col-span-5">Material</div>
-                        <div className="col-span-3">Thickness d (cm)</div>
-                        <div className="col-span-3 text-right">R-Value (m²K/W)</div>
+                        <div className="col-span-5">{t.assemblies.tableMaterial}</div>
+                        <div className="col-span-3">{t.assemblies.tableThickness}</div>
+                        <div className="col-span-3 text-right">{t.assemblies.tableR}</div>
                         <div className="col-span-1"></div>
                       </div>
 
@@ -304,7 +320,7 @@ export const AssemblyBuilder: React.FC = () => {
                                 >
                                   {materials.map((m) => (
                                     <option key={m.id} value={m.id}>
-                                      {m.name} (λ={m.design_thermal_conductivity})
+                                      {getLocalized(m.name)} (λ={m.design_thermal_conductivity})
                                     </option>
                                   ))}
                                 </select>
@@ -328,7 +344,7 @@ export const AssemblyBuilder: React.FC = () => {
                               </div>
 
                               {/* Layer R resistance result */}
-                              <div className="col-span-3 text-right font-mono text-xs font-bold text-slate-600">
+                              <div className="col-span-3 text-right font-mono text-xs font-bold text-slate-600 font-mono">
                                 {layerR.toFixed(3)}
                               </div>
 
@@ -337,7 +353,7 @@ export const AssemblyBuilder: React.FC = () => {
                                 <button
                                   onClick={() => deleteLayer(assembly.id, layer.id)}
                                   className="text-slate-400 hover:text-red-500 p-1"
-                                  title="Delete Layer"
+                                  title={t.assemblies.deleteLayer}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -348,7 +364,7 @@ export const AssemblyBuilder: React.FC = () => {
 
                         {assembly.layers.length === 0 && (
                           <div className="text-center p-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-xs">
-                            No structural layers added yet. Click "+ Add Layer" to start stacking construction materials.
+                            {t.assemblies.noLayers}
                           </div>
                         )}
                       </div>
@@ -360,18 +376,18 @@ export const AssemblyBuilder: React.FC = () => {
                           onClick={() => handleAddLayerToAssembly(assembly.id)}
                           className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors"
                         >
-                          <Plus className="w-3.5 h-3.5" /> Add Layer
+                          <Plus className="w-3.5 h-3.5" /> {t.assemblies.addLayerBtn}
                         </button>
 
                         {/* Thermal summary */}
                         <div className="text-xs space-y-1 text-slate-500 text-right font-medium">
                           <div>
-                            Sum of Layers: <span className="font-mono text-slate-700 font-bold">
+                            {t.assemblies.sumLayers}: <span className="font-mono text-slate-700 font-bold font-mono">
                               {assembly.layers.reduce((sum, l) => sum + calculateLayerResistance(l, materials), 0).toFixed(3)} m²K/W
                             </span>
                           </div>
                           <div>
-                            Total Resistance: <span className="font-mono text-slate-700 font-bold">
+                            {t.assemblies.totalResistance}: <span className="font-mono text-slate-700 font-bold font-mono">
                               {(assembly.rsi + assembly.rse + assembly.layers.reduce((sum, l) => sum + calculateLayerResistance(l, materials), 0)).toFixed(3)} m²K/W
                             </span>
                           </div>

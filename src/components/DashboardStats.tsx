@@ -2,8 +2,10 @@ import React from 'react';
 import { useHeatLossStore } from '../store';
 import { calculateTransmissionLoss, calculateVentilationLoss, calculateEffectiveUValue } from '../mathEngine';
 import { Flame, Layers, TrendingDown } from 'lucide-react';
+import { useTranslate } from '../hooks/useTranslate';
 
 export const DashboardStats: React.FC = () => {
+  const { t } = useTranslate();
   const elements = useHeatLossStore((state) => state.envelope_elements);
   const assemblies = useHeatLossStore((state) => state.assemblies);
   const materials = useHeatLossStore((state) => state.materials);
@@ -51,10 +53,10 @@ export const DashboardStats: React.FC = () => {
           <div className="flex justify-between items-start mb-3">
             <div>
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                Total Heat Loss (Φ_Total)
+                {t.dashboard.totalLoss}
               </span>
               <h3 className="text-4xl font-black mt-1 font-mono">
-                {(totalLoss / 1000).toFixed(2)} <span className="text-xl font-medium">kW</span>
+                {(totalLoss / 1000).toFixed(2)} <span className="text-xl font-medium">{t.dashboard.kW}</span>
               </h3>
             </div>
             <div className="bg-red-500/20 p-2.5 rounded-xl border border-red-500/30">
@@ -62,11 +64,11 @@ export const DashboardStats: React.FC = () => {
             </div>
           </div>
           <p className="text-xs text-slate-400 font-medium">
-            At design temperature difference of {settings.t_int - settings.t_e} K
+            {t.dashboard.tempDiff} {settings.t_int - settings.t_e} K
           </p>
           <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between text-xs text-slate-400 font-semibold">
-            <span>Transmission: {(totalTransmission / 1000).toFixed(2)} kW</span>
-            <span>Ventilation: {(totalVentilation / 1000).toFixed(2)} kW</span>
+            <span>{t.dashboard.transmission}: {(totalTransmission / 1000).toFixed(2)} kW</span>
+            <span>{t.dashboard.ventilation}: {(totalVentilation / 1000).toFixed(2)} kW</span>
           </div>
         </div>
 
@@ -75,9 +77,9 @@ export const DashboardStats: React.FC = () => {
           <div className="flex justify-between items-start mb-3">
             <div>
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                Avg. Envelope U-Value
+                {t.dashboard.avgU}
               </span>
-              <h3 className="text-4xl font-black mt-1 font-mono text-indigo-600">
+              <h3 className="text-4xl font-black mt-1 font-mono text-indigo-600 font-mono">
                 {avgUValue.toFixed(3)}
               </h3>
             </div>
@@ -86,11 +88,11 @@ export const DashboardStats: React.FC = () => {
             </div>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Mean insulation rating of envelope surfaces. Lower is better.
+            {t.dashboard.avgUDesc}
           </p>
           <div className="mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400 flex justify-between font-semibold">
-            <span>Total Envelope Area:</span>
-            <span className="font-mono text-slate-700 font-bold">{totalArea.toFixed(1)} m²</span>
+            <span>{t.dashboard.totalArea}:</span>
+            <span className="font-mono text-slate-700 font-bold font-mono">{totalArea.toFixed(1)} m²</span>
           </div>
         </div>
 
@@ -99,10 +101,10 @@ export const DashboardStats: React.FC = () => {
           <div>
             <div className="flex justify-between items-center mb-4">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                Loss Mechanics Ratio
+                {t.dashboard.mechanicsRatio}
               </span>
               <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
-                {totalLoss > 0 ? 'Analyzed' : 'Inactive'}
+                {totalLoss > 0 ? t.dashboard.analyzed : t.dashboard.inactive}
               </span>
             </div>
 
@@ -123,17 +125,17 @@ export const DashboardStats: React.FC = () => {
             <div className="grid grid-cols-2 gap-2 text-xs font-bold">
               <div className="flex items-center gap-1.5 text-red-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
-                <span>Transm.: {transmissionPct.toFixed(0)}%</span>
+                <span>{t.dashboard.transmission}: {transmissionPct.toFixed(0)}%</span>
               </div>
               <div className="flex items-center gap-1.5 text-blue-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></span>
-                <span>Ventil.: {ventilationPct.toFixed(0)}%</span>
+                <span>{t.dashboard.ventilation}: {ventilationPct.toFixed(0)}%</span>
               </div>
             </div>
           </div>
 
           <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
-            Highly sealed structures reduce ventilation ratios but require standard air-flow controls.
+            {t.dashboard.ratioDesc}
           </p>
         </div>
       </div>
@@ -142,11 +144,11 @@ export const DashboardStats: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
         <div className="flex items-center gap-2 mb-4">
           <TrendingDown className="text-amber-500 w-5 h-5" />
-          <h3 className="text-lg font-bold text-slate-800">Heat Loss Distribution Profile</h3>
+          <h3 className="text-lg font-bold text-slate-800">{t.dashboard.distributionTitle}</h3>
         </div>
 
         <p className="text-slate-500 text-sm mb-6">
-          Visual profile showing which envelope surfaces lose the most energy. Use this breakdown to prioritize insulation additions or triple-glazing.
+          {t.dashboard.distributionDesc}
         </p>
 
         <div className="space-y-4">
@@ -162,7 +164,7 @@ export const DashboardStats: React.FC = () => {
                       ({item.area} m² @ U={item.uEff.toFixed(2)})
                     </span>
                   </div>
-                  <div className="font-mono font-black text-slate-800">
+                  <div className="font-mono font-black text-slate-800 font-mono">
                     {item.loss.toFixed(0)} W <span className="text-slate-400 font-normal text-[10px]">({itemPct.toFixed(1)}%)</span>
                   </div>
                 </div>
@@ -182,9 +184,9 @@ export const DashboardStats: React.FC = () => {
               <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-400 font-mono font-bold w-5">#V</span>
-                  <span className="font-bold text-slate-700">Ventilation Loss (Airflow exchange)</span>
+                  <span className="font-bold text-slate-700">{t.dashboard.ventilationAirflow}</span>
                 </div>
-                <div className="font-mono font-black text-slate-800">
+                <div className="font-mono font-black text-slate-800 font-mono">
                   {totalVentilation.toFixed(0)} W <span className="text-slate-400 font-normal text-[10px]">({(totalVentilation/totalLoss * 100).toFixed(1)}%)</span>
                 </div>
               </div>
