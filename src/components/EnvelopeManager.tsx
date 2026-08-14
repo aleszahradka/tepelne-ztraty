@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useHeatLossStore, generateUUID } from '../store';
 import type { EnvelopeElement, AdjacentSpaceType } from '../types';
-import { calculateAssemblyUValue, calculateEffectiveUValue, calculateTransmissionLoss } from '../mathEngine';
-import { ShieldAlert, Plus, Trash2, Copy, HelpCircle } from 'lucide-react';
+import { calculateAssemblyUValue, calculateEffectiveUValue, calculateTransmissionLoss, calculateChildOpeningsArea, calculateNetArea, isNetAreaExceeded } from '../mathEngine';
+import { ShieldAlert, Plus, Trash2, Copy, HelpCircle, CornerDownRight, AlertTriangle } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
 
 export const EnvelopeManager: React.FC = () => {
@@ -23,6 +23,7 @@ export const EnvelopeManager: React.FC = () => {
   const [newAdjacentSpace, setNewAdjacentSpace] = useState<AdjacentSpaceType>('exterior');
   const [newBFactor, setNewBFactor] = useState<number>(1.0);
   const [newDeltaUTb, setNewDeltaUTb] = useState<number>(0.05);
+  const [newParentElementId, setNewParentElementId] = useState<string>('');
 
   const [showHelper, setShowHelper] = useState(false);
 
@@ -60,7 +61,8 @@ export const EnvelopeManager: React.FC = () => {
       assembly_id: assId,
       adjacent_space_type: newAdjacentSpace,
       b_factor: newBFactor,
-      delta_u_tb: newDeltaUTb
+      delta_u_tb: newDeltaUTb,
+      parent_element_id: newParentElementId || undefined
     };
 
     addElement(newElement);
@@ -79,9 +81,12 @@ export const EnvelopeManager: React.FC = () => {
 
   // Calculate total transmission loss for scaling visual bars
   const totalTransmissionLoss = elements.reduce(
-    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings),
+    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements),
     0
   );
+
+  // Eligible parent candidates (elements that are not children themselves)
+  const topLevelElements = elements.filter(e => !e.parent_element_id);
 
   return (
     <div className="bg-white rounded-xl shadow-md p-6 border border-slate-100 h-full">
@@ -226,8 +231,27 @@ export const EnvelopeManager: React.FC = () => {
             />
           </div>
 
+          {/* Parent Element Selector */}
+          <div className="sm:col-span-1 md:col-span-2 xl:col-span-2">
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              {t.envelope.parentElement}
+            </label>
+            <select
+              value={newParentElementId}
+              onChange={(e) => setNewParentElementId(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-md text-xs focus:ring-red-500 focus:border-red-500 bg-white"
+            >
+              <option value="">{t.envelope.noneStandalone}</option>
+              {topLevelElements.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Blank column for spacing on large screens */}
-          <div className="sm:col-span-1 xl:col-span-4"></div>
+          <div className="sm:col-span-1 xl:col-span-2"></div>
 
           {/* Submit button */}
           <div className="sm:col-span-1 md:col-span-2 xl:col-span-2">
@@ -259,137 +283,216 @@ export const EnvelopeManager: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
-            {elements.map((element) => {
-              const uEff = calculateEffectiveUValue(element, assemblies, materials);
-              const loss = calculateTransmissionLoss(element, assemblies, materials, settings);
+            {(() => {
+              // Get top-level elements (no parent or parent not found)
+              const validIds = new Set(elements.map(e => e.id));
+              const topLevel = elements.filter(e => !e.parent_element_id || !validIds.has(e.parent_element_id));
 
-              // calculate percentage of total transmission losses
-              const pctOfLoss = totalTransmissionLoss > 0 ? (loss / totalTransmissionLoss) * 100 : 0;
+              const renderRow = (element: EnvelopeElement, isChild: boolean = false) => {
+                const uEff = calculateEffectiveUValue(element, assemblies, materials);
+                const loss = calculateTransmissionLoss(element, assemblies, materials, settings, elements);
+                const pctOfLoss = totalTransmissionLoss > 0 ? (loss / totalTransmissionLoss) * 100 : 0;
 
-              return (
-                <tr key={element.id} className="hover:bg-slate-50/50 transition-colors">
-                  {/* Name (Inline editable) */}
-                  <td className="px-4 py-3.5">
-                    <input
-                      type="text"
-                      value={element.name}
-                      onChange={(e) => updateElement(element.id, { name: e.target.value })}
-                      className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-red-500 font-semibold text-slate-800 text-sm px-1 py-0.5 w-full outline-none"
-                    />
-                  </td>
+                const openingsArea = calculateChildOpeningsArea(element.id, elements);
+                const netArea = calculateNetArea(element, elements);
+                const isExceeded = isNetAreaExceeded(element, elements);
+                const hasChildren = openingsArea > 0;
 
-                  {/* Area (Inline editable) */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <div className="flex items-center gap-1 font-mono text-xs">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        value={element.area}
-                        onChange={(e) => updateElement(element.id, { area: Math.max(0.1, parseFloat(e.target.value) || 0) })}
-                        className="w-16 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-center text-slate-700"
-                      />
-                      <span className="text-slate-400">m²</span>
-                    </div>
-                  </td>
+                return (
+                  <tr
+                    key={element.id}
+                    className={`hover:bg-slate-50/50 transition-colors ${
+                      isChild ? 'bg-slate-50/40' : ''
+                    } ${isExceeded ? 'bg-amber-50/50' : ''}`}
+                  >
+                    {/* Name (Inline editable) & Parent relation */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          {isChild && (
+                            <CornerDownRight className="w-4 h-4 text-indigo-400 shrink-0 ml-3" />
+                          )}
+                          <input
+                            type="text"
+                            value={element.name}
+                            onChange={(e) => updateElement(element.id, { name: e.target.value })}
+                            className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-red-500 font-semibold text-slate-800 text-sm px-1 py-0.5 w-full outline-none"
+                          />
+                        </div>
 
-                  {/* Assembly Selector */}
-                  <td className="px-4 py-3.5">
-                    <select
-                      value={element.assembly_id}
-                      onChange={(e) => updateElement(element.id, { assembly_id: e.target.value })}
-                      className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-700 outline-none focus:ring-1 focus:ring-red-500 w-44"
-                    >
-                      {assemblies.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} ({calculateAssemblyUValue(a, materials).toFixed(2)})
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+                        {/* Inline parent selector */}
+                        <div className={`flex items-center gap-1.5 text-[11px] ${isChild ? 'ml-8' : ''}`}>
+                          <span className="text-slate-400 font-medium">{t.envelope.parentElement}:</span>
+                          <select
+                            value={element.parent_element_id || ''}
+                            onChange={(e) => updateElement(element.id, { parent_element_id: e.target.value || undefined })}
+                            className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-600 outline-none focus:ring-1 focus:ring-red-500"
+                          >
+                            <option value="">{t.envelope.noneStandalone}</option>
+                            {elements
+                              .filter(e => e.id !== element.id && e.parent_element_id !== element.id)
+                              .map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+                    </td>
 
-                  {/* Penalty (Inline editable) */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <div className="flex items-center gap-1 font-mono text-xs">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="0.5"
-                        value={element.delta_u_tb}
-                        onChange={(e) => updateElement(element.id, { delta_u_tb: Math.max(0, parseFloat(e.target.value) || 0) })}
-                        className="w-14 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-center text-slate-600 font-medium"
-                      />
-                    </div>
-                  </td>
+                    {/* Area Breakdown */}
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <div className="flex flex-col gap-1 font-mono text-xs">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.1"
+                            value={element.area}
+                            onChange={(e) => updateElement(element.id, { area: Math.max(0.1, parseFloat(e.target.value) || 0) })}
+                            className="w-16 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-center text-slate-700"
+                          />
+                          <span className="text-slate-400">m²</span>
+                          {hasChildren && (
+                            <span className="text-[10px] text-slate-400 font-normal">({t.envelope.grossArea})</span>
+                          )}
+                        </div>
 
-                  {/* Effective U-Value */}
-                  <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs font-bold text-slate-700">
-                    {uEff.toFixed(3)} <span className="text-[9px] text-slate-400">W/m²K</span>
-                  </td>
+                        {/* Openings & Net Area Breakdown */}
+                        {hasChildren && (
+                          <div className="text-[11px] space-y-0.5 pt-0.5 border-t border-slate-100">
+                            <div className="text-slate-500 flex items-center justify-between gap-2">
+                              <span>{t.envelope.openingsArea}:</span>
+                              <span className="text-red-500 font-semibold">-{openingsArea.toFixed(1)} m²</span>
+                            </div>
+                            <div className="text-slate-800 font-bold flex items-center justify-between gap-2">
+                              <span>{t.envelope.netArea}:</span>
+                              <span className={isExceeded ? 'text-amber-600 font-black' : 'text-slate-900'}>
+                                {netArea.toFixed(1)} m²
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
-                  {/* Adjacent space factor b */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
+                        {/* Warning badge if net area < 0 */}
+                        {isExceeded && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-100/80 px-1.5 py-0.5 rounded mt-0.5 whitespace-normal max-w-[170px]">
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            <span>{t.envelope.openingsExceedWarning}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Assembly Selector */}
+                    <td className="px-4 py-3.5">
                       <select
-                        value={element.adjacent_space_type}
-                        onChange={(e) => handleSpaceTypeChange(e.target.value as AdjacentSpaceType, false, element.id)}
-                        className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-600 outline-none"
+                        value={element.assembly_id}
+                        onChange={(e) => updateElement(element.id, { assembly_id: e.target.value })}
+                        className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-700 outline-none focus:ring-1 focus:ring-red-500 w-44"
                       >
-                        <option value="exterior">{t.envelope.spaces.exterior}</option>
-                        <option value="ground">{t.envelope.spaces.ground}</option>
-                        <option value="unheated">{t.envelope.spaces.unheated}</option>
-                        <option value="custom">{t.envelope.spaces.custom}</option>
+                        {assemblies.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name} ({calculateAssemblyUValue(a, materials).toFixed(2)})
+                          </option>
+                        ))}
                       </select>
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        disabled={element.adjacent_space_type === 'exterior' || element.adjacent_space_type === 'ground'}
-                        value={element.b_factor}
-                        onChange={(e) => updateElement(element.id, { b_factor: Math.min(1.0, Math.max(0, parseFloat(e.target.value) || 0)) })}
-                        className="w-12 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-xs font-mono text-center text-slate-700 disabled:text-slate-400"
-                      />
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Computed Heat Loss */}
-                  <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                    <div className="font-mono text-sm font-black text-red-600 font-mono">
-                      {loss.toFixed(1)} W
-                    </div>
-                    {/* Tiny inline distribution bar */}
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1">
-                      <div
-                        className="bg-red-500 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${pctOfLoss}%` }}
-                      ></div>
-                    </div>
-                  </td>
+                    {/* Penalty (Inline editable) */}
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1 font-mono text-xs">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="0.5"
+                          value={element.delta_u_tb}
+                          onChange={(e) => updateElement(element.id, { delta_u_tb: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          className="w-14 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-center text-slate-600 font-medium"
+                        />
+                      </div>
+                    </td>
 
-                  {/* Actions */}
-                  <td className="px-4 py-3.5 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => handleDuplicateElement(element)}
-                        className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
-                        title={t.envelope.duplicateTooltip}
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => deleteElement(element.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded transition-colors"
-                        title={t.envelope.deleteTooltip}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                    {/* Effective U-Value */}
+                    <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs font-bold text-slate-700">
+                      {uEff.toFixed(3)} <span className="text-[9px] text-slate-400">W/m²K</span>
+                    </td>
+
+                    {/* Adjacent space factor b */}
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={element.adjacent_space_type}
+                          onChange={(e) => handleSpaceTypeChange(e.target.value as AdjacentSpaceType, false, element.id)}
+                          className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-600 outline-none"
+                        >
+                          <option value="exterior">{t.envelope.spaces.exterior}</option>
+                          <option value="ground">{t.envelope.spaces.ground}</option>
+                          <option value="unheated">{t.envelope.spaces.unheated}</option>
+                          <option value="custom">{t.envelope.spaces.custom}</option>
+                        </select>
+                        <input
+                          type="number"
+                          step="0.05"
+                          min="0"
+                          max="1"
+                          disabled={element.adjacent_space_type === 'exterior' || element.adjacent_space_type === 'ground'}
+                          value={element.b_factor}
+                          onChange={(e) => updateElement(element.id, { b_factor: Math.min(1.0, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                          className="w-12 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-xs font-mono text-center text-slate-700 disabled:text-slate-400"
+                        />
+                      </div>
+                    </td>
+
+                    {/* Computed Heat Loss */}
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                      <div className="font-mono text-sm font-black text-red-600 font-mono">
+                        {loss.toFixed(1)} W
+                      </div>
+                      {/* Tiny inline distribution bar */}
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1">
+                        <div
+                          className="bg-red-500 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${pctOfLoss}%` }}
+                        ></div>
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3.5 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleDuplicateElement(element)}
+                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+                          title={t.envelope.duplicateTooltip}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteElement(element.id)}
+                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded transition-colors"
+                          title={t.envelope.deleteTooltip}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              };
+
+              return topLevel.map((parent) => {
+                const children = elements.filter((c) => c.parent_element_id === parent.id);
+                return (
+                  <React.Fragment key={parent.id}>
+                    {renderRow(parent, false)}
+                    {children.map((child) => renderRow(child, true))}
+                  </React.Fragment>
+                );
+              });
+            })()}
 
             {elements.length === 0 && (
               <tr>

@@ -27,11 +27,12 @@ export type AdjacentSpaceType = 'exterior' | 'ground' | 'unheated' | 'custom';
 export interface EnvelopeElement {
   id: string; // Unique ID
   name: string;
-  area: number; // Area in m²
+  area: number; // Gross Area (A_gross) in m²
   assembly_id: string; // Links to Assembly.id
   adjacent_space_type: AdjacentSpaceType;
   b_factor: number; // Temperature reduction factor
   delta_u_tb: number; // Thermal bridge penalty (ΔU_tb), default 0.05
+  parent_element_id?: string; // Optional parent element ID for nested openings (windows/doors)
 }
 
 export interface EnvironmentalSettings {
