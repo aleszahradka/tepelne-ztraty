@@ -440,3 +440,175 @@ export function calculateRoofPrismGeometry(
     return { roofSlopeArea, pitchAngle, gableWallArea };
   }
 }
+
+/**
+ * Generates boundary surfaces (EnvelopeElement items) automatically for a 3D room.
+ * Box room -> 6 surfaces (Front, Right, Back, Left walls, Ceiling/Roof, Floor).
+ * Triangular Roof Prism -> 5 surfaces (2 pitched roof slopes, 2 gable walls, 1 bottom base).
+ */
+export function generateRoomBoundarySurfaces(
+  room: Room,
+  storeys: Storey[] = [],
+  defaultAssemblyId: string = ''
+): EnvelopeElement[] {
+  const storey = storeys.find((s) => s.id === room.storey_id);
+  const levelZ = storey?.level_z ?? 0;
+
+  const w = room.width || (room.area ? Math.sqrt(room.area) : 4);
+  const l = room.length || (room.area ? Math.sqrt(room.area) : 4);
+  const h = room.height || 2.7;
+  const isGroundLevel = Math.abs(levelZ) < 0.05;
+
+  // Generate deterministic unique IDs
+  const genId = (suffix: string) => `env-${room.id}-${suffix}`;
+
+  if (room.shape_type === 'triangular_prism') {
+    const { roofSlopeArea, pitchAngle, gableWallArea } = calculateRoofPrismGeometry(w, l, h, 'triangular_prism');
+    const singleSlopeArea = Math.round((roofSlopeArea / 2) * 100) / 100;
+    const singleGableArea = Math.round((gableWallArea / 2) * 100) / 100;
+    const baseArea = Math.round(w * l * 100) / 100;
+
+    return [
+      {
+        id: genId('roof-left'),
+        name: `${room.name} – Střešní rovina L`,
+        area: singleSlopeArea,
+        assembly_id: defaultAssemblyId,
+        adjacent_space_type: 'exterior',
+        b_factor: 1.0,
+        delta_u_tb: 0.05,
+        room_id: room.id,
+        relative_angle: 270,
+        tilt: pitchAngle
+      },
+      {
+        id: genId('roof-right'),
+        name: `${room.name} – Střešní rovina R`,
+        area: singleSlopeArea,
+        assembly_id: defaultAssemblyId,
+        adjacent_space_type: 'exterior',
+        b_factor: 1.0,
+        delta_u_tb: 0.05,
+        room_id: room.id,
+        relative_angle: 90,
+        tilt: pitchAngle
+      },
+      {
+        id: genId('gable-front'),
+        name: `${room.name} – Štítová stěna P`,
+        area: singleGableArea,
+        assembly_id: defaultAssemblyId,
+        adjacent_space_type: 'exterior',
+        b_factor: 1.0,
+        delta_u_tb: 0.05,
+        room_id: room.id,
+        relative_angle: 0,
+        tilt: 90
+      },
+      {
+        id: genId('gable-back'),
+        name: `${room.name} – Štítová stěna Z`,
+        area: singleGableArea,
+        assembly_id: defaultAssemblyId,
+        adjacent_space_type: 'exterior',
+        b_factor: 1.0,
+        delta_u_tb: 0.05,
+        room_id: room.id,
+        relative_angle: 180,
+        tilt: 90
+      },
+      {
+        id: genId('base-floor'),
+        name: `${room.name} – Základová deska/Strop`,
+        area: baseArea,
+        assembly_id: defaultAssemblyId,
+        adjacent_space_type: isGroundLevel ? 'ground' : 'exterior',
+        b_factor: isGroundLevel ? 0.45 : 1.0,
+        delta_u_tb: 0.02,
+        room_id: room.id,
+        relative_angle: 0,
+        tilt: 0
+      }
+    ];
+  }
+
+  // Standard Box Geometry (6 Faces)
+  const wallFrontArea = Math.round(w * h * 100) / 100;
+  const wallSideArea = Math.round(l * h * 100) / 100;
+  const floorCeilingArea = Math.round(w * l * 100) / 100;
+
+  return [
+    {
+      id: genId('wall-front'),
+      name: `${room.name} – Severní/Čelní stěna`,
+      area: wallFrontArea,
+      assembly_id: defaultAssemblyId,
+      adjacent_space_type: 'exterior',
+      b_factor: 1.0,
+      delta_u_tb: 0.05,
+      room_id: room.id,
+      relative_angle: 0,
+      tilt: 90
+    },
+    {
+      id: genId('wall-right'),
+      name: `${room.name} – Východní/Pravá stěna`,
+      area: wallSideArea,
+      assembly_id: defaultAssemblyId,
+      adjacent_space_type: 'exterior',
+      b_factor: 1.0,
+      delta_u_tb: 0.05,
+      room_id: room.id,
+      relative_angle: 90,
+      tilt: 90
+    },
+    {
+      id: genId('wall-back'),
+      name: `${room.name} – Jižní/Zadní stěna`,
+      area: wallFrontArea,
+      assembly_id: defaultAssemblyId,
+      adjacent_space_type: 'exterior',
+      b_factor: 1.0,
+      delta_u_tb: 0.05,
+      room_id: room.id,
+      relative_angle: 180,
+      tilt: 90
+    },
+    {
+      id: genId('wall-left'),
+      name: `${room.name} – Západní/Levá stěna`,
+      area: wallSideArea,
+      assembly_id: defaultAssemblyId,
+      adjacent_space_type: 'exterior',
+      b_factor: 1.0,
+      delta_u_tb: 0.05,
+      room_id: room.id,
+      relative_angle: 270,
+      tilt: 90
+    },
+    {
+      id: genId('roof-ceiling'),
+      name: `${room.name} – Strop/Střecha`,
+      area: floorCeilingArea,
+      assembly_id: defaultAssemblyId,
+      adjacent_space_type: 'exterior',
+      b_factor: 1.0,
+      delta_u_tb: 0.05,
+      room_id: room.id,
+      relative_angle: 0,
+      tilt: 0
+    },
+    {
+      id: genId('floor-ground'),
+      name: `${room.name} – Podlaha`,
+      area: floorCeilingArea,
+      assembly_id: defaultAssemblyId,
+      adjacent_space_type: isGroundLevel ? 'ground' : 'exterior',
+      b_factor: isGroundLevel ? 0.45 : 1.0,
+      delta_u_tb: 0.02,
+      room_id: room.id,
+      relative_angle: 0,
+      tilt: 0
+    }
+  ];
+}

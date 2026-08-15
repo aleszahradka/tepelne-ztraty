@@ -246,7 +246,11 @@ export const cs = {
     magnetSensitivity: "Citlivost magnetu (m)",
     snapDistance: "Vzdálenost přichycení",
     placeOnTop: "Položit na horní plochu",
-    snapToRoof: "Přichytit na střechu"
+    snapToRoof: "Přichytit na střechu",
+    roomEnvelopes: "Obálky místností",
+    generatedFace: "Vygenerovaná plocha",
+    adjacentRoom: "Sousední místnost",
+    movedToUnassigned: "Převedeno do nepřiřazených"
   }
 };
 export type Translations = typeof cs;

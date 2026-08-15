@@ -248,6 +248,10 @@ export const en: Translations = {
     magnetSensitivity: "Snap Distance (m)",
     snapDistance: "Magnet Threshold",
     placeOnTop: "Place on Top Face",
-    snapToRoof: "Snap to Roof Top"
+    snapToRoof: "Snap to Roof Top",
+    roomEnvelopes: "Room Envelopes",
+    generatedFace: "Generated Face",
+    adjacentRoom: "Adjacent Room",
+    movedToUnassigned: "Moved to Unassigned"
   }
 };

@@ -1,5 +1,5 @@
 import type { Material, Layer, Assembly, EnvelopeElement, EnvironmentalSettings, Room, Storey } from './types';
-import { calculateAdjustedNetArea } from './spatialEngine';
+import { calculateAdjustedNetArea, detectRoomAdjacencies } from './spatialEngine';
 
 /**
  * Calculates the thermal resistance of a single layer: R = d / lambda
@@ -109,9 +109,28 @@ export function calculateTransmissionLoss(
       indoorTemp = linkedRoom.t_int;
     }
   }
+
+  // 1. External Net Transmission Loss
   const deltaT = indoorTemp - settings.t_e;
   const netArea = calculateNetArea(element, allElements, rooms, storeys);
-  const loss = netArea * uEffective * deltaT * element.b_factor;
+  let loss = netArea * uEffective * deltaT * element.b_factor;
+
+  // 2. Internal Partition Contact Transmission Loss for unequal temperature adjacent rooms
+  if (element.room_id && rooms.length > 0) {
+    const contacts = detectRoomAdjacencies(rooms, storeys);
+    contacts.forEach((c) => {
+      if (c.room1Id === element.room_id || c.room2Id === element.room_id) {
+        if (!c.isEqualTemp && c.contactArea > 0) {
+          const isWall = element.tilt === 90 && (c.contactType === 'wall_x' || c.contactType === 'wall_z');
+          const isFloorCeiling = element.tilt === 0 && c.contactType === 'floor_ceiling';
+          if (isWall || isFloorCeiling) {
+            loss += c.contactArea * uEffective * Math.abs(c.deltaT);
+          }
+        }
+      }
+    });
+  }
+
   return loss > 0 ? loss : 0;
 }
 
