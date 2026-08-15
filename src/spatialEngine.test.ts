@@ -1,4 +1,10 @@
-import { detectRoomAdjacencies, calculateAdjustedNetArea } from './spatialEngine';
+import {
+  detectRoomAdjacencies,
+  calculateAdjustedNetArea,
+  applyMagneticFaceSnapping,
+  checkRoomAABBCollision,
+  calculateRoofPrismGeometry
+} from './spatialEngine';
 import { calculateTotalBuildingTransmissionLoss } from './mathEngine';
 import type { Room, Storey, EnvelopeElement, Assembly, Material, EnvironmentalSettings } from './types';
 
@@ -102,6 +108,43 @@ export function runSpatialEngineTests() {
   assert(lossSeparated > 0, 'Separated heat loss should be greater than 0');
   assert(lossAdjacent === 0, 'Adjacent heat loss should drop to 0 for internal contact face');
   console.log(`✓ Test 4 Passed: Building transmission loss reduced from ${lossSeparated.toFixed(1)} W to ${lossAdjacent.toFixed(1)} W.`);
+
+  // Test 5: Magnetic Face Snapping
+  const nearRoomX = 4.88; // 0.12m away from room1 right wall (X=5.0)
+  const snapRes = applyMagneticFaceSnapping(
+    { ...room2Separated, pos_x: nearRoomX, pos_y: 0, width: 5, length: 5 },
+    nearRoomX,
+    0,
+    [room1],
+    storeys,
+    0.2
+  );
+  assert(snapRes.isSnappedX, 'Magnetic snapping should trigger for X distance < 0.2m');
+  assert(snapRes.snappedX === 5.0, `Snapped X should be flush 5.0m, got ${snapRes.snappedX}`);
+  console.log(`✓ Test 5 Passed: Magnetic snap aligned position from ${nearRoomX}m to ${snapRes.snappedX}m.`);
+
+  // Test 6: AABB Collision Prevention
+  const collidingRoomAABB = {
+    roomId: 'r3',
+    minX: 2.0, // Interpenentrates Room 1 (0 to 5)
+    maxX: 7.0,
+    minY: 0,
+    maxY: 2.7,
+    minZ: 1.0,
+    maxZ: 4.0,
+    width: 5,
+    height: 2.7,
+    length: 3
+  };
+  const isColliding = checkRoomAABBCollision('r3', collidingRoomAABB, [room1], storeys);
+  assert(isColliding === true, 'Collision check should flag volume interpenetration');
+  console.log('✓ Test 6 Passed: AABB collision prevention correctly detected volume overlap.');
+
+  // Test 7: Triangular Roof Prism Geometry
+  const roofGeom = calculateRoofPrismGeometry(6, 10, 2.5, 'triangular_prism');
+  assert(roofGeom.roofSlopeArea > 0, 'Pitched roof slope area should be calculated');
+  assert(roofGeom.pitchAngle > 0, 'Pitch angle should be calculated');
+  console.log(`✓ Test 7 Passed: Gable roof prism area=${roofGeom.roofSlopeArea.toFixed(1)}m², pitch=${roofGeom.pitchAngle}°.`);
 
   console.log('--- ALL SPATIAL ENGINE TESTS PASSED SUCCESSFULLY ---');
 }

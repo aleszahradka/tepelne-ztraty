@@ -228,7 +228,21 @@ export const cs = {
     modeMove: "Posun",
     modeResize: "Změna velikosti",
     modeView: "Prohlížení",
-    cantileverOverhang: "Konzolový převis"
+    cantileverOverhang: "Konzolový převis",
+    magneticSnap: "Magnetické přichytávání",
+    preventOverlap: "Zabránit překrývání",
+    triangularPrism: "Trojboký hranol (Střecha)",
+    quadrangularPrism: "Čtyřboký hranol",
+    exactDimensions: "Číselné rozměry",
+    openingSizes: "Rozměry otvoru",
+    shapeType: "Tvar tělesa",
+    pitchAngle: "Sklon střechy (°)",
+    eaveHeight: "Výška okapu (m)",
+    openingWidth: "Šířka otvoru (m)",
+    openingHeight: "Výška otvoru (m)",
+    offsetX: "Posun X (m)",
+    offsetY: "Posun Y (m)",
+    boxShape: "Kvádr (Místnost)"
   }
 };
 export type Translations = typeof cs;

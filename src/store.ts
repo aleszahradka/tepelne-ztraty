@@ -300,6 +300,9 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       const newElem = { ...e, ...updated };
       if (updated.parent_element_id === '') newElem.parent_element_id = undefined;
       if (updated.room_id === '') newElem.room_id = undefined;
+      if (typeof newElem.opening_width === 'number' && typeof newElem.opening_height === 'number') {
+        newElem.area = Math.round(newElem.opening_width * newElem.opening_height * 100) / 100;
+      }
       return newElem;
     })
   })),

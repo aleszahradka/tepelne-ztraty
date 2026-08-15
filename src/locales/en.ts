@@ -230,6 +230,20 @@ export const en: Translations = {
     modeMove: "Move",
     modeResize: "Resize",
     modeView: "View Only",
-    cantileverOverhang: "Cantilever Overhang"
+    cantileverOverhang: "Cantilever Overhang",
+    magneticSnap: "Magnetic Snap",
+    preventOverlap: "Prevent Overlap",
+    triangularPrism: "Triangular Prism (Roof)",
+    quadrangularPrism: "Quadrangular Prism",
+    exactDimensions: "Exact Dimensions",
+    openingSizes: "Opening Sizes",
+    shapeType: "Body Geometry",
+    pitchAngle: "Roof Pitch (°)",
+    eaveHeight: "Eave Height (m)",
+    openingWidth: "Opening Width (m)",
+    openingHeight: "Opening Height (m)",
+    offsetX: "Offset X (m)",
+    offsetY: "Offset Y (m)",
+    boxShape: "Box (Room Volume)"
   }
 };
