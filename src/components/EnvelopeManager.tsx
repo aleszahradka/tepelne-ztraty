@@ -12,12 +12,14 @@ export const EnvelopeManager: React.FC = () => {
   const materials = useHeatLossStore((state) => state.materials);
   const settings = useHeatLossStore((state) => state.environmental_settings);
   const rooms = useHeatLossStore((state) => state.rooms);
+  const storeys = useHeatLossStore((state) => state.storeys);
 
   const addElement = useHeatLossStore((state) => state.addElement);
   const updateElement = useHeatLossStore((state) => state.updateElement);
   const deleteElement = useHeatLossStore((state) => state.deleteElement);
 
-  // Room filtering state
+  // Storey and Room filtering state
+  const [selectedFilterStoreyId, setSelectedFilterStoreyId] = useState<string>('all');
   const [selectedFilterRoomId, setSelectedFilterRoomId] = useState<string>('all');
 
   // New element states
@@ -115,11 +117,23 @@ export const EnvelopeManager: React.FC = () => {
     }
   });
 
-  // Filter items by room if selected
+  // Combined filtering logic by Storey and Room
   const filteredOrderedItems = orderedItems.filter(({ element }) => {
-    if (selectedFilterRoomId === 'all') return true;
-    if (selectedFilterRoomId === 'unassigned') return !element.room_id;
-    return element.room_id === selectedFilterRoomId;
+    // 1. Room filter check
+    if (selectedFilterRoomId !== 'all') {
+      if (selectedFilterRoomId === 'unassigned' && element.room_id) return false;
+      if (selectedFilterRoomId !== 'unassigned' && element.room_id !== selectedFilterRoomId) return false;
+    }
+
+    // 2. Storey filter check
+    if (selectedFilterStoreyId !== 'all') {
+      if (!element.room_id) return false;
+      const elementRoom = rooms.find((r) => r.id === element.room_id);
+      if (selectedFilterStoreyId === 'unassigned' && elementRoom?.storey_id) return false;
+      if (selectedFilterStoreyId !== 'unassigned' && elementRoom?.storey_id !== selectedFilterStoreyId) return false;
+    }
+
+    return true;
   });
 
   return (
@@ -144,52 +158,85 @@ export const EnvelopeManager: React.FC = () => {
         {t.envelope.desc}
       </p>
 
-      {/* Room Filter Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3 mb-6 bg-slate-50 rounded-xl border border-slate-200">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-indigo-600 shrink-0" />
-          <span className="text-xs font-bold text-slate-700">Filtr místností / Room Filter:</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            onClick={() => setSelectedFilterRoomId('all')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-              selectedFilterRoomId === 'all'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Všechny ({elements.length})
-          </button>
-
-          {rooms.map((room) => {
-            const count = elements.filter((e) => e.room_id === room.id).length;
-            return (
+      {/* Filter Bar Controls (Storey & Room) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 mb-6 bg-slate-50 rounded-xl border border-slate-200">
+        {/* Storey Filter */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 text-xs font-bold text-slate-700 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Filtr podlaží / Storey Filter:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              onClick={() => setSelectedFilterStoreyId('all')}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                selectedFilterStoreyId === 'all'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Všechna podlaží
+            </button>
+            {storeys.map((storey) => (
               <button
-                key={room.id}
-                onClick={() => setSelectedFilterRoomId(room.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  selectedFilterRoomId === room.id
+                key={storey.id}
+                onClick={() => setSelectedFilterStoreyId(storey.id)}
+                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                  selectedFilterStoreyId === storey.id
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {room.name} ({count})
+                {storey.name}
               </button>
-            );
-          })}
+            ))}
+          </div>
+        </div>
 
-          <button
-            onClick={() => setSelectedFilterRoomId('unassigned')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-              selectedFilterRoomId === 'unassigned'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Nazařazené ({elements.filter((e) => !e.room_id).length})
-          </button>
+        {/* Room Filter */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 text-xs font-bold text-slate-700 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Filtr místností / Room Filter:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              onClick={() => setSelectedFilterRoomId('all')}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                selectedFilterRoomId === 'all'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Všechny ({elements.length})
+            </button>
+            {rooms.map((room) => {
+              const count = elements.filter((e) => e.room_id === room.id).length;
+              return (
+                <button
+                  key={room.id}
+                  onClick={() => setSelectedFilterRoomId(room.id)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                    selectedFilterRoomId === room.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {room.name} ({count})
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setSelectedFilterRoomId('unassigned')}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                selectedFilterRoomId === 'unassigned'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Nezařazené ({elements.filter((e) => !e.room_id).length})
+            </button>
+          </div>
         </div>
       </div>
 
