@@ -89,6 +89,7 @@ interface RoomMeshProps {
   gridSnap: boolean;
   snapStep: number;
   magneticSnap: boolean;
+  snapDistance: number;
   preventCollision: boolean;
   rooms: Room[];
   storeys: Storey[];
@@ -111,6 +112,7 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
   gridSnap,
   snapStep,
   magneticSnap,
+  snapDistance,
   preventCollision,
   rooms,
   storeys,
@@ -242,7 +244,7 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           newPosY,
           rooms,
           storeys,
-          0.2
+          snapDistance
         );
         newPosX = snapRes.snappedX;
         newPosY = snapRes.snappedY;
@@ -507,11 +509,15 @@ export const BuildingViewer3D: React.FC = () => {
   const materials = useHeatLossStore((state) => state.materials);
   const settings = useHeatLossStore((state) => state.environmental_settings);
 
+  const magneticSnapDistance = useHeatLossStore((state) => state.magnetic_snap_distance);
+  const setMagneticSnapDistance = useHeatLossStore((state) => state.setMagneticSnapDistance);
+
   const addRoom = useHeatLossStore((state) => state.addRoom);
   const updateRoom = useHeatLossStore((state) => state.updateRoom);
   const deleteRoom = useHeatLossStore((state) => state.deleteRoom);
   const addElement = useHeatLossStore((state) => state.addElement);
   const updateElement = useHeatLossStore((state) => state.updateElement);
+  const addStorey = useHeatLossStore((state) => state.addStorey);
 
   const [heatmapOverlay, setHeatmapOverlay] = useState<boolean>(true);
   const [wireframe, setWireframe] = useState<boolean>(false);
@@ -698,17 +704,34 @@ export const BuildingViewer3D: React.FC = () => {
             {t.viewer3d?.modeView || 'Prohlížení'}
           </button>
 
-          {/* Magnetic Face Snap Toggle */}
-          <button
-            onClick={() => setMagneticSnap(!magneticSnap)}
-            className={`px-2.5 py-1.5 rounded-md font-semibold flex items-center gap-1 transition-colors ${
-              magneticSnap ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-500'
-            }`}
-            title={t.viewer3d?.magneticSnap || 'Magnetické přichytávání'}
-          >
-            <Magnet className="w-3.5 h-3.5" />
-            <span>{t.viewer3d?.magneticSnap || 'Magnet'}</span>
-          </button>
+          {/* Magnetic Face Snap Toggle & Sensitivity Distance Slider */}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-md px-1.5 py-1">
+            <button
+              onClick={() => setMagneticSnap(!magneticSnap)}
+              className={`px-1.5 py-0.5 rounded font-semibold flex items-center gap-1 text-xs transition-colors ${
+                magneticSnap ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+              title={t.viewer3d?.magneticSnap || 'Magnetické přichytávání'}
+            >
+              <Magnet className="w-3.5 h-3.5" />
+              <span>{t.viewer3d?.magneticSnap || 'Magnet'}</span>
+            </button>
+            {magneticSnap && (
+              <div className="flex items-center gap-1 text-[11px] text-slate-600 font-mono">
+                <input
+                  type="number"
+                  step="0.05"
+                  min="0.02"
+                  max="0.50"
+                  value={magneticSnapDistance}
+                  onChange={(e) => setMagneticSnapDistance(parseFloat(e.target.value) || 0.15)}
+                  className="w-12 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-800 font-mono"
+                  title={t.viewer3d?.magnetSensitivity || 'Citlivost magnetu (m)'}
+                />
+                <span className="text-[10px] text-slate-400">m</span>
+              </div>
+            )}
+          </div>
 
           {/* Collision Prevention Toggle */}
           <button
@@ -804,6 +827,7 @@ export const BuildingViewer3D: React.FC = () => {
                 gridSnap={gridSnap}
                 snapStep={snapStep}
                 magneticSnap={magneticSnap}
+                snapDistance={magneticSnapDistance}
                 preventCollision={preventCollision}
                 rooms={rooms}
                 storeys={storeys}
@@ -945,6 +969,38 @@ export const BuildingViewer3D: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Place on Top Face Helper Button */}
+            <button
+              onClick={() => {
+                const currentStorey = storeys.find((s) => s.id === selectedRoom.storey_id);
+                const currentLevelZ = currentStorey?.level_z ?? 0;
+                // Find target storey at highest level
+                const highestLevelZ = Math.max(...rooms.map((r) => {
+                  const s = storeys.find((st) => st.id === r.storey_id);
+                  return (s?.level_z ?? 0) + (r.height || 2.7);
+                }));
+
+                const targetLevel = highestLevelZ > currentLevelZ ? highestLevelZ : currentLevelZ + (selectedRoom.height || 2.7);
+
+                // Find or create upper storey
+                let targetStorey = storeys.find((s) => Math.abs(s.level_z - targetLevel) < 0.05);
+                if (!targetStorey) {
+                  const newStoreyId = generateUUID();
+                  targetStorey = {
+                    id: newStoreyId,
+                    name: `Storey (${targetLevel.toFixed(1)}m)`,
+                    level_z: targetLevel
+                  };
+                  addStorey(targetStorey);
+                }
+
+                updateRoom(selectedRoom.id, { storey_id: targetStorey.id });
+              }}
+              className="w-full py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-semibold text-[11px] text-center transition-colors shadow-sm flex items-center justify-center gap-1 mt-1"
+            >
+              <span>⬆️ {t.viewer3d?.placeOnTop || 'Položit na horní plochu'}</span>
+            </button>
           </div>
         )}
 

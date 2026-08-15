@@ -244,6 +244,9 @@ export const en: Translations = {
     openingHeight: "Opening Height (m)",
     offsetX: "Offset X (m)",
     offsetY: "Offset Y (m)",
-    boxShape: "Box (Room Volume)"
+    boxShape: "Box (Room Volume)",
+    magnetSensitivity: "Snap Distance (m)",
+    snapDistance: "Magnet Threshold",
+    placeOnTop: "Place on Top Face"
   }
 };

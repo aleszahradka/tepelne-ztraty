@@ -146,6 +146,53 @@ export function runSpatialEngineTests() {
   assert(roofGeom.pitchAngle > 0, 'Pitch angle should be calculated');
   console.log(`✓ Test 7 Passed: Gable roof prism area=${roofGeom.roofSlopeArea.toFixed(1)}m², pitch=${roofGeom.pitchAngle}°.`);
 
+  // Test 8: Stacking Triangular Roof Prism Flush on Top of Room Volume (Y-axis Stacking Tolerance)
+  const roomBase: Room = {
+    id: 'r_base',
+    name: '1.NP Room',
+    storey_id: 's1',
+    width: 6,
+    length: 10,
+    height: 2.7,
+    area: 60,
+    t_int: 20,
+    air_exchange_rate: 0.5,
+    pos_x: 0,
+    pos_y: 0
+  };
+
+  const roofPrismAABB = {
+    roomId: 'roof_1',
+    minX: 0,
+    maxX: 6,
+    minY: 2.7, // Positioned flush on top of roomBase ceiling (maxY = 2.7)
+    maxY: 5.2,
+    minZ: 0,
+    maxZ: 10,
+    width: 6,
+    height: 2.5,
+    length: 10
+  };
+
+  const isRoofColliding = checkRoomAABBCollision('roof_1', roofPrismAABB, [roomBase], storeys);
+  assert(isRoofColliding === false, 'Roof prism resting flush on top of room base should NOT trigger collision');
+  console.log('✓ Test 8 Passed: Roof prism resting flush on top of storey ceiling passed collision check without rejection.');
+
+  // Test 9: Configurable Magnetic Snap Threshold
+  const customThreshold = 0.35;
+  const farX = 4.70; // 0.30m away from room1 right face (X=5.0)
+  const snapResCustom = applyMagneticFaceSnapping(
+    { ...room2Separated, pos_x: farX, pos_y: 0, width: 5, length: 5 },
+    farX,
+    0,
+    [room1],
+    storeys,
+    customThreshold
+  );
+  assert(snapResCustom.isSnappedX, 'Custom snap threshold (0.35m) should snap at 0.30m distance');
+  assert(snapResCustom.snappedX === 5.0, 'Snapped position should equal 5.0m');
+  console.log(`✓ Test 9 Passed: Dynamic magnetic snap threshold (${customThreshold}m) snapped position at ${farX}m to ${snapResCustom.snappedX}m.`);
+
   console.log('--- ALL SPATIAL ENGINE TESTS PASSED SUCCESSFULLY ---');
 }
 

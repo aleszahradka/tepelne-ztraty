@@ -78,15 +78,27 @@ export function applyMagneticFaceSnapping(
   candidateY: number,
   rooms: Room[],
   storeys: Storey[] = [],
-  snapThreshold: number = 0.2
-): { snappedX: number; snappedY: number; isSnappedX: boolean; isSnappedY: boolean } {
+  snapThreshold: number = 0.2,
+  candidateLevelZ?: number
+): {
+  snappedX: number;
+  snappedY: number;
+  snappedLevelZ?: number;
+  isSnappedX: boolean;
+  isSnappedY: boolean;
+  isSnappedLevelZ?: boolean;
+} {
   const width = activeRoom.width || (activeRoom.area ? Math.sqrt(activeRoom.area) : 4);
   const length = activeRoom.length || (activeRoom.area ? Math.sqrt(activeRoom.area) : 4);
+  const height = activeRoom.height || 2.7;
 
   let snappedX = candidateX;
   let snappedY = candidateY;
+  let snappedLevelZ = candidateLevelZ;
+
   let isSnappedX = false;
   let isSnappedY = false;
+  let isSnappedLevelZ = false;
 
   const candidateMinX = candidateX;
   const candidateMaxX = candidateX + width;
@@ -114,7 +126,7 @@ export function applyMagneticFaceSnapping(
       isSnappedX = true;
     }
 
-    // Z-axis (Y offset) alignment snapping
+    // Z-axis (Y offset in 2D plane) alignment snapping
     // 1. Candidate Front face (minZ) near Target Back face (maxZ)
     if (Math.abs(candidateMinZ - targetAABB.maxZ) < snapThreshold) {
       snappedY = targetAABB.maxZ;
@@ -130,18 +142,43 @@ export function applyMagneticFaceSnapping(
       snappedY = targetAABB.minZ;
       isSnappedY = true;
     }
+
+    // Y-axis (Elevation Level Z) alignment snapping
+    if (candidateLevelZ !== undefined) {
+      const candidateMinY = candidateLevelZ;
+      const candidateMaxY = candidateLevelZ + height;
+
+      // Bottom face near target top face (Stack on top)
+      if (Math.abs(candidateMinY - targetAABB.maxY) < snapThreshold) {
+        snappedLevelZ = targetAABB.maxY;
+        isSnappedLevelZ = true;
+      }
+      // Top face near target bottom face
+      else if (Math.abs(candidateMaxY - targetAABB.minY) < snapThreshold) {
+        snappedLevelZ = targetAABB.minY - height;
+        isSnappedLevelZ = true;
+      }
+      // Bottom face near target bottom face (Flush level)
+      else if (Math.abs(candidateMinY - targetAABB.minY) < snapThreshold) {
+        snappedLevelZ = targetAABB.minY;
+        isSnappedLevelZ = true;
+      }
+    }
   });
 
   return {
     snappedX: Math.round(snappedX * 100) / 100,
     snappedY: Math.round(snappedY * 100) / 100,
+    snappedLevelZ: snappedLevelZ !== undefined ? Math.round(snappedLevelZ * 100) / 100 : undefined,
     isSnappedX,
-    isSnappedY
+    isSnappedY,
+    isSnappedLevelZ
   };
 }
 
 /**
  * Checks if a candidate room AABB interpenetrates or collides with any other room volume.
+ * Supports flush stacking tolerance along Y-axis for roof prisms and upper storey rooms.
  */
 export function checkRoomAABBCollision(
   activeRoomId: string,
@@ -153,9 +190,20 @@ export function checkRoomAABBCollision(
     if (r.id === activeRoomId) continue;
     const b = calculateRoomAABB(r, storeys);
 
+    // Compute 3D bounding box overlaps
     const overlapX = Math.max(0, Math.min(candidateAABB.maxX, b.maxX) - Math.max(candidateAABB.minX, b.minX));
     const overlapY = Math.max(0, Math.min(candidateAABB.maxY, b.maxY) - Math.max(candidateAABB.minY, b.minY));
     const overlapZ = Math.max(0, Math.min(candidateAABB.maxZ, b.maxZ) - Math.max(candidateAABB.minZ, b.minZ));
+
+    // Flush surface stacking check:
+    // If candidate's bottom face touches or is flush with target top face (or vice versa),
+    // it represents surface contact rather than interpenetration.
+    const isFlushOnTop = Math.abs(candidateAABB.minY - b.maxY) < 0.05;
+    const isFlushUnder = Math.abs(candidateAABB.maxY - b.minY) < 0.05;
+
+    if (isFlushOnTop || isFlushUnder) {
+      continue; // Surface contact, not internal volume collision
+    }
 
     // Internal volume overlap > 0.05m along all 3 axes constitutes collision
     if (overlapX > 0.05 && overlapY > 0.05 && overlapZ > 0.05) {

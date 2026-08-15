@@ -242,7 +242,10 @@ export const cs = {
     openingHeight: "Výška otvoru (m)",
     offsetX: "Posun X (m)",
     offsetY: "Posun Y (m)",
-    boxShape: "Kvádr (Místnost)"
+    boxShape: "Kvádr (Místnost)",
+    magnetSensitivity: "Citlivost magnetu (m)",
+    snapDistance: "Vzdálenost přichycení",
+    placeOnTop: "Položit na horní plochu"
   }
 };
 export type Translations = typeof cs;

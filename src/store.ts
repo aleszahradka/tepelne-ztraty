@@ -180,9 +180,11 @@ interface HeatLossState {
   environmental_settings: EnvironmentalSettings;
   storeys: Storey[];
   rooms: Room[];
+  magnetic_snap_distance: number;
 
   // Actions
   setLanguage: (lang: 'cs' | 'en') => void;
+  setMagneticSnapDistance: (dist: number) => void;
   addMaterial: (material: Material) => void;
   deleteMaterial: (id: string) => void;
 
@@ -220,6 +222,11 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
   storeys: INITIAL_STOREYS,
   rooms: INITIAL_ROOMS,
+  magnetic_snap_distance: 0.15,
+
+  setMagneticSnapDistance: (dist) => set(() => ({
+    magnetic_snap_distance: Math.min(0.5, Math.max(0.02, dist))
+  })),
 
   // Language management
   setLanguage: (language) => set(() => {
