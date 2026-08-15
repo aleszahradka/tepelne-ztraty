@@ -255,6 +255,11 @@ export const en: Translations = {
     movedToUnassigned: "Moved to Unassigned",
     manualElement: "Manual Element (Calc only)",
     unassignedElements: "Unassigned Elements",
-    internalContact: "Internal Contact"
+    internalContact: "Internal Contact",
+    addOpeningToWall: "Add Opening to Wall",
+    highlightOpening: "Highlight Opening",
+    roomName: "Room Name",
+    volumetricCollision: "3D Volumetric Collision",
+    addOpeningToggle: "Add Opening"
   }
 };

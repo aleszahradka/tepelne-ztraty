@@ -253,7 +253,12 @@ export const cs = {
     movedToUnassigned: "Převedeno do nepřiřazených",
     manualElement: "Ruční prvek (pouze výpočet)",
     unassignedElements: "Nepřiřazené prvky",
-    internalContact: "Vnitřní kontakt"
+    internalContact: "Vnitřní kontakt",
+    addOpeningToWall: "Přidat otvor na stěnu",
+    highlightOpening: "Zvýraznit otvor",
+    roomName: "Název místnosti",
+    volumetricCollision: "3D Objemová kolize",
+    addOpeningToggle: "Dodatečný otvor"
   }
 };
 export type Translations = typeof cs;

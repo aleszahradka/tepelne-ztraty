@@ -89,6 +89,7 @@ interface RoomMeshProps {
   heatmapOverlay: boolean;
   wireframe: boolean;
   selectedRoomId: string | null;
+  selectedElementId: string | null;
   transformMode: 'translate' | 'scale' | 'view';
   gridSnap: boolean;
   snapStep: number;
@@ -112,6 +113,7 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
   heatmapOverlay,
   wireframe,
   selectedRoomId,
+  selectedElementId,
   transformMode,
   gridSnap,
   snapStep,
@@ -403,27 +405,41 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
             openRot = [0, -Math.PI / 2, 0];
           }
 
-          const openingColor = heatmapOverlay ? getThermalColor(opening.uValue, true) : '#0284c7';
+          const isOpeningSelected = selectedElementId === opening.id;
+          const openingColor = isOpeningSelected
+            ? '#f59e0b'
+            : heatmapOverlay
+            ? getThermalColor(opening.uValue, true)
+            : '#0284c7';
 
           return (
-            <mesh
-              key={opening.id}
-              position={openPos}
-              rotation={openRot}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectElement(opening.id);
-              }}
-            >
-              <planeGeometry args={[winW, winH]} />
-              <meshStandardMaterial
-                color={openingColor}
-                transparent
-                opacity={0.85}
-                roughness={0.1}
-                metalness={0.8}
-              />
-            </mesh>
+            <group key={opening.id} position={openPos} rotation={openRot}>
+              <mesh
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectElement(opening.id);
+                }}
+              >
+                <planeGeometry args={[winW, winH]} />
+                <meshStandardMaterial
+                  color={openingColor}
+                  emissive={isOpeningSelected ? '#fbbf24' : '#000000'}
+                  emissiveIntensity={isOpeningSelected ? 0.6 : 0}
+                  transparent
+                  opacity={0.85}
+                  roughness={0.1}
+                  metalness={0.8}
+                />
+              </mesh>
+
+              {/* Highlight selection wireframe outline for selected opening */}
+              {isOpeningSelected && (
+                <lineSegments>
+                  <edgesGeometry args={[new THREE.PlaneGeometry(winW, winH)]} />
+                  <lineBasicMaterial color="#f59e0b" linewidth={3} />
+                </lineSegments>
+              )}
+            </group>
           );
         })}
       </group>
@@ -538,6 +554,8 @@ export const BuildingViewer3D: React.FC = () => {
     roomId: string;
     faceIndex: number;
   } | null>(null);
+  const [showAddOpeningPanel, setShowAddOpeningPanel] = useState<boolean>(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const roomContacts = useMemo(() => {
     return detectRoomAdjacencies(rooms, storeys);
@@ -573,6 +591,7 @@ export const BuildingViewer3D: React.FC = () => {
 
     addRoom(newRoom);
     setSelectedRoomId(newRoomId);
+    setTimeout(() => nameInputRef.current?.focus(), 80);
   };
 
   const handleDeleteSelectedRoom = () => {
@@ -775,6 +794,19 @@ export const BuildingViewer3D: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddOpeningPanel(!showAddOpeningPanel)}
+              className={`px-2.5 py-1.5 rounded-md font-semibold flex items-center gap-1 transition-colors ${
+                showAddOpeningPanel
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+              title={t.viewer3d?.addOpeningToWall || 'Přidat otvor na stěnu'}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{t.viewer3d?.addOpeningToggle || 'Dodatečný otvor'}</span>
+            </button>
+
           <button
             onClick={handleAddDefaultRoom}
             className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold flex items-center gap-1 transition-colors shadow-sm"
@@ -827,6 +859,7 @@ export const BuildingViewer3D: React.FC = () => {
                 heatmapOverlay={heatmapOverlay}
                 wireframe={wireframe}
                 selectedRoomId={selectedRoomId}
+                selectedElementId={selectedElementId}
                 transformMode={transformMode}
                 gridSnap={gridSnap}
                 snapStep={snapStep}
@@ -838,39 +871,61 @@ export const BuildingViewer3D: React.FC = () => {
                 onSelectRoom={(id) => {
                   setSelectedRoomId(selectedRoomId === id ? null : id);
                   setSelectedElementId(null);
+                  if (id) {
+                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                  }
                 }}
                 onSelectElement={(id) => setSelectedElementId(id)}
-                onFaceClick={(rId, fIdx) => setSurfaceContextMenu({ roomId: rId, faceIndex: fIdx })}
+                onFaceClick={(rId, fIdx) => {
+                  setSurfaceContextMenu({ roomId: rId, faceIndex: fIdx });
+                }}
                 updateRoom={updateRoom}
               />
             ));
           })}
         </Canvas>
 
-        {/* Surface Context Menu Popup */}
-        {surfaceContextMenu && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900/95 border border-indigo-500 rounded-xl p-4 text-xs text-white shadow-2xl space-y-2 min-w-[220px] z-20 backdrop-blur-md">
+        {/* Wall Opening Creation Overlay Panel (Moved strictly to bottom-left corner and toggleable) */}
+        {(showAddOpeningPanel || surfaceContextMenu) && (
+          <div className="absolute bottom-3 left-3 bg-slate-900/95 border border-indigo-500 rounded-xl p-3 text-xs text-white shadow-2xl space-y-2 min-w-[220px] max-w-[250px] z-20 backdrop-blur-md">
             <div className="font-bold text-indigo-400 border-b border-slate-700 pb-1 flex justify-between items-center">
-              <span>{t.viewer3d?.addWindowToSurface || 'Přidat otvory'}</span>
+              <span>{t.viewer3d?.addOpeningToWall || 'Přidat otvor na stěnu'}</span>
               <button
-                onClick={() => setSurfaceContextMenu(null)}
-                className="text-slate-400 hover:text-white"
+                onClick={() => {
+                  setShowAddOpeningPanel(false);
+                  setSurfaceContextMenu(null);
+                }}
+                className="text-slate-400 hover:text-white text-xs px-1"
               >
                 ✕
               </button>
             </div>
             <p className="text-[11px] text-slate-300">
-              Vyberte typ otvoru pro umístění na označenou stěnu:
+              Vyberte typ otvoru k přidání na stěnu:
             </p>
             <div className="flex flex-col gap-1.5">
               <button
-                onClick={() => handleAddOpeningToSurface('window')}
+                onClick={() => {
+                  const targetRoomId = surfaceContextMenu?.roomId || selectedRoomId || rooms[0]?.id;
+                  if (!targetRoomId) return;
+                  const ctx = surfaceContextMenu || { roomId: targetRoomId, faceIndex: 0 };
+                  setSurfaceContextMenu(ctx);
+                  handleAddOpeningToSurface('window');
+                  setShowAddOpeningPanel(false);
+                }}
                 className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-semibold text-center transition-colors"
               >
                 🪟 {t.viewer3d?.addWindowToSurface || 'Přidat okno'}
               </button>
               <button
-                onClick={() => handleAddOpeningToSurface('door')}
+                onClick={() => {
+                  const targetRoomId = surfaceContextMenu?.roomId || selectedRoomId || rooms[0]?.id;
+                  if (!targetRoomId) return;
+                  const ctx = surfaceContextMenu || { roomId: targetRoomId, faceIndex: 0 };
+                  setSurfaceContextMenu(ctx);
+                  handleAddOpeningToSurface('door');
+                  setShowAddOpeningPanel(false);
+                }}
                 className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 rounded font-semibold text-center transition-colors"
               >
                 🚪 {t.viewer3d?.addDoorToSurface || 'Přidat dveře'}
@@ -882,7 +937,7 @@ export const BuildingViewer3D: React.FC = () => {
         {/* Direct Numeric Dimension Input Panel for Selected Room */}
         {selectedRoom && (
           <div className="absolute top-3 right-3 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl p-3 text-xs text-slate-200 shadow-2xl space-y-2 max-w-[260px] z-10">
-            <div className="font-bold text-indigo-400 text-sm border-b border-slate-700 pb-1 flex justify-between items-center">
+            <div className="font-bold text-indigo-400 text-sm border-b border-slate-700 pb-1.5 flex justify-between items-center">
               <span className="flex items-center gap-1">
                 <Sliders className="w-3.5 h-3.5" />
                 {t.viewer3d?.exactDimensions || 'Číselné rozměry'}
@@ -890,6 +945,20 @@ export const BuildingViewer3D: React.FC = () => {
               <button onClick={() => setSelectedRoomId(null)} className="text-slate-400 hover:text-white">
                 ✕
               </button>
+            </div>
+
+            {/* Prominent Room Name Input Field */}
+            <div>
+              <label className="block text-[10px] text-indigo-300 font-semibold mb-0.5">
+                {t.viewer3d?.roomName || 'Název místnosti'}
+              </label>
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={selectedRoom.name}
+                onChange={(e) => updateRoom(selectedRoom.id, { name: e.target.value })}
+                className="w-full px-2 py-1 bg-slate-800 border border-indigo-500/60 rounded text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              />
             </div>
 
             {/* Shape Selector */}

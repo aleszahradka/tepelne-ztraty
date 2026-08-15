@@ -188,7 +188,7 @@ export function applyMagneticFaceSnapping(
 
 /**
  * Checks if a candidate room AABB interpenetrates or collides with any other room volume.
- * Supports flush stacking tolerance along Y-axis for roof prisms and upper storey rooms.
+ * Supports 0-clearance flush face contact along X, Y, and Z axes while strictly blocking interior volume interpenetration.
  */
 export function checkRoomAABBCollision(
   activeRoomId: string,
@@ -200,22 +200,21 @@ export function checkRoomAABBCollision(
     if (r.id === activeRoomId) continue;
     const b = calculateRoomAABB(r, storeys);
 
-    // Compute 3D bounding box overlaps
+    // Compute 3D bounding box overlaps along X, Y, Z
     const overlapX = Math.max(0, Math.min(candidateAABB.maxX, b.maxX) - Math.max(candidateAABB.minX, b.minX));
     const overlapY = Math.max(0, Math.min(candidateAABB.maxY, b.maxY) - Math.max(candidateAABB.minY, b.minY));
     const overlapZ = Math.max(0, Math.min(candidateAABB.maxZ, b.maxZ) - Math.max(candidateAABB.minZ, b.minZ));
 
-    // Flush surface stacking check:
-    // If candidate's bottom face touches or is flush with target top face (or vice versa),
-    // it represents surface contact rather than interpenetration.
-    const isFlushOnTop = Math.abs(candidateAABB.minY - b.maxY) < 0.05;
-    const isFlushUnder = Math.abs(candidateAABB.maxY - b.minY) < 0.05;
+    // Flush surface contacts (0 clearance along any single axis face)
+    const isFlushX = Math.abs(candidateAABB.maxX - b.minX) < 0.02 || Math.abs(candidateAABB.minX - b.maxX) < 0.02;
+    const isFlushY = Math.abs(candidateAABB.maxY - b.minY) < 0.02 || Math.abs(candidateAABB.minY - b.maxY) < 0.02;
+    const isFlushZ = Math.abs(candidateAABB.maxZ - b.minZ) < 0.02 || Math.abs(candidateAABB.minZ - b.maxZ) < 0.02;
 
-    if (isFlushOnTop || isFlushUnder) {
+    if (isFlushX || isFlushY || isFlushZ) {
       continue; // Surface contact, not internal volume collision
     }
 
-    // Internal volume overlap > 0.05m along all 3 axes constitutes collision
+    // Internal volume overlap > 0.05m along all 3 axes constitutes true 3D volumetric collision
     if (overlapX > 0.05 && overlapY > 0.05 && overlapZ > 0.05) {
       return true;
     }
