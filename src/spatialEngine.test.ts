@@ -5,6 +5,7 @@ import {
   checkRoomAABBCollision,
   calculateRoofPrismGeometry
 } from './spatialEngine';
+import { createTriangularPrismGeometry } from './components/BuildingViewer3D';
 import { calculateTotalBuildingTransmissionLoss } from './mathEngine';
 import type { Room, Storey, EnvelopeElement, Assembly, Material, EnvironmentalSettings } from './types';
 
@@ -192,6 +193,32 @@ export function runSpatialEngineTests() {
   assert(snapResCustom.isSnappedX, 'Custom snap threshold (0.35m) should snap at 0.30m distance');
   assert(snapResCustom.snappedX === 5.0, 'Snapped position should equal 5.0m');
   console.log(`✓ Test 9 Passed: Dynamic magnetic snap threshold (${customThreshold}m) snapped position at ${farX}m to ${snapResCustom.snappedX}m.`);
+
+  // Test 10: Triangular Prism Geometry Bounding Box Minimum Y Origin Check
+  const prismGeom = createTriangularPrismGeometry(6, 2.5, 10);
+  assert(prismGeom.boundingBox !== null, 'Bounding box should be computed');
+  const minY = prismGeom.boundingBox!.min.y;
+  const maxY = prismGeom.boundingBox!.max.y;
+  assert(Math.abs(minY - (-1.25)) < 0.001, `Min Y should equal -height/2 (-1.25), got ${minY}`);
+  assert(Math.abs(maxY - 1.25) < 0.001, `Max Y should equal +height/2 (+1.25), got ${maxY}`);
+  console.log(`✓ Test 10 Passed: Triangular prism geometry origin verified: Y_min=${minY}, Y_max=${maxY}.`);
+
+  // Test 11: Roof Prism Pushed Into Room Volume triggers Collision
+  const invalidRoofAABB = {
+    roomId: 'roof_1',
+    minX: 0,
+    maxX: 6,
+    minY: 1.5, // Pushed 1.2m down INTO roomBase volume (0 to 2.7)
+    maxY: 4.0,
+    minZ: 0,
+    maxZ: 10,
+    width: 6,
+    height: 2.5,
+    length: 10
+  };
+  const isInvalidRoofBlocked = checkRoomAABBCollision('roof_1', invalidRoofAABB, [roomBase], storeys);
+  assert(isInvalidRoofBlocked === true, 'Pushing roof prism into room interior volume must trigger collision block');
+  console.log('✓ Test 11 Passed: Collision engine blocked roof prism from clipping into room interior space.');
 
   console.log('--- ALL SPATIAL ENGINE TESTS PASSED SUCCESSFULLY ---');
 }

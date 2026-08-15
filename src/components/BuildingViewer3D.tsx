@@ -26,40 +26,42 @@ function getThermalColor(uValue: number, isOpening: boolean = false): string {
   return '#ef4444'; // Red: High heat loss
 }
 
-// Procedural Triangular Prism Geometry for Gable Roofs
-function createTriangularPrismGeometry(width: number, height: number, length: number) {
+// Procedural Triangular Prism Geometry for Gable Roofs (Centered origin Y_min = -height/2, Y_max = +height/2)
+export function createTriangularPrismGeometry(width: number, height: number, length: number) {
   const geom = new THREE.BufferGeometry();
   const halfW = width / 2;
+  const halfH = height / 2;
+  const halfL = length / 2;
 
-  // Vertices for triangular prism (gable roof along Z-axis)
+  // Vertices centered around (0,0,0) so origin aligns perfectly with group bounding box
   const vertices = new Float32Array([
     // Front triangle face (+Z)
-    -halfW, 0, length / 2,
-     halfW, 0, length / 2,
-     0, height, length / 2,
+    -halfW, -halfH, halfL,
+     halfW, -halfH, halfL,
+     0,      halfH, halfL,
 
     // Back triangle face (-Z)
-     halfW, 0, -length / 2,
-    -halfW, 0, -length / 2,
-     0, height, -length / 2,
+     halfW, -halfH, -halfL,
+    -halfW, -halfH, -halfL,
+     0,      halfH, -halfL,
 
     // Left pitched roof slope
-    -halfW, 0, length / 2,
-     0, height, length / 2,
-     0, height, -length / 2,
-    -halfW, 0, -length / 2,
+    -halfW, -halfH, halfL,
+     0,      halfH, halfL,
+     0,      halfH, -halfL,
+    -halfW, -halfH, -halfL,
 
     // Right pitched roof slope
-     0, height, length / 2,
-     halfW, 0, length / 2,
-     halfW, 0, -length / 2,
-     0, height, -length / 2,
+     0,      halfH, halfL,
+     halfW, -halfH, halfL,
+     halfW, -halfH, -halfL,
+     0,      halfH, -halfL,
 
     // Bottom base face (-Y)
-    -halfW, 0, -length / 2,
-     halfW, 0, -length / 2,
-     halfW, 0, length / 2,
-    -halfW, 0, length / 2
+    -halfW, -halfH, -halfL,
+     halfW, -halfH, -halfL,
+     halfW, -halfH, halfL,
+    -halfW, -halfH, halfL
   ]);
 
   const indices = [
@@ -73,6 +75,8 @@ function createTriangularPrismGeometry(width: number, height: number, length: nu
   geom.setIndex(indices);
   geom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
   return geom;
 }
 

@@ -245,7 +245,8 @@ export const cs = {
     boxShape: "Kvádr (Místnost)",
     magnetSensitivity: "Citlivost magnetu (m)",
     snapDistance: "Vzdálenost přichycení",
-    placeOnTop: "Položit na horní plochu"
+    placeOnTop: "Položit na horní plochu",
+    snapToRoof: "Přichytit na střechu"
   }
 };
 export type Translations = typeof cs;

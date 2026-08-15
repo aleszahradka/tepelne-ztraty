@@ -247,6 +247,7 @@ export const en: Translations = {
     boxShape: "Box (Room Volume)",
     magnetSensitivity: "Snap Distance (m)",
     snapDistance: "Magnet Threshold",
-    placeOnTop: "Place on Top Face"
+    placeOnTop: "Place on Top Face",
+    snapToRoof: "Snap to Roof Top"
   }
 };

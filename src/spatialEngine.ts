@@ -143,26 +143,36 @@ export function applyMagneticFaceSnapping(
       isSnappedY = true;
     }
 
-    // Y-axis (Elevation Level Z) alignment snapping
-    if (candidateLevelZ !== undefined) {
-      const candidateMinY = candidateLevelZ;
-      const candidateMaxY = candidateLevelZ + height;
+    // Y-axis (Elevation Level Z) alignment snapping:
+    // Support snapping candidate bottom face directly onto target top face even if candidateLevelZ is inferred
+    const effectiveCandidateLevelZ = candidateLevelZ ?? calculateRoomAABB(activeRoom, storeys).minY;
+    const candidateMinY = effectiveCandidateLevelZ;
+    const candidateMaxY = effectiveCandidateLevelZ + height;
 
-      // Bottom face near target top face (Stack on top)
-      if (Math.abs(candidateMinY - targetAABB.maxY) < snapThreshold) {
-        snappedLevelZ = targetAABB.maxY;
-        isSnappedLevelZ = true;
+    // Bottom face near target top face (Stack on top face)
+    if (Math.abs(candidateMinY - targetAABB.maxY) < snapThreshold) {
+      snappedLevelZ = targetAABB.maxY;
+      isSnappedLevelZ = true;
+
+      // Align footprint X and Z boundaries flush with target footprint if within snap threshold
+      if (Math.abs(candidateMinX - targetAABB.minX) < snapThreshold * 1.5) {
+        snappedX = targetAABB.minX;
+        isSnappedX = true;
       }
-      // Top face near target bottom face
-      else if (Math.abs(candidateMaxY - targetAABB.minY) < snapThreshold) {
-        snappedLevelZ = targetAABB.minY - height;
-        isSnappedLevelZ = true;
+      if (Math.abs(candidateMinZ - targetAABB.minZ) < snapThreshold * 1.5) {
+        snappedY = targetAABB.minZ;
+        isSnappedY = true;
       }
-      // Bottom face near target bottom face (Flush level)
-      else if (Math.abs(candidateMinY - targetAABB.minY) < snapThreshold) {
-        snappedLevelZ = targetAABB.minY;
-        isSnappedLevelZ = true;
-      }
+    }
+    // Top face near target bottom face
+    else if (Math.abs(candidateMaxY - targetAABB.minY) < snapThreshold) {
+      snappedLevelZ = targetAABB.minY - height;
+      isSnappedLevelZ = true;
+    }
+    // Bottom face near target bottom face (Flush level)
+    else if (Math.abs(candidateMinY - targetAABB.minY) < snapThreshold) {
+      snappedLevelZ = targetAABB.minY;
+      isSnappedLevelZ = true;
     }
   });
 
