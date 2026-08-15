@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { useHeatLossStore, generateUUID } from '../store';
+import { useHeatLossStore, generateUUID, DEFAULT_VIEWER_3D_THEME, type Viewer3DTheme } from '../store';
 import { calculateEffectiveUValue } from '../mathEngine';
 import {
   detectRoomAdjacencies,
@@ -14,50 +14,42 @@ import type { Room, Storey, EnvelopeElement, Assembly, Material } from '../types
 import { useTranslate } from '../hooks/useTranslate';
 import {
   Flame, RefreshCw, Compass, Layers, Plus, Trash2, Magnet, Move,
-  Maximize2, MousePointer, ShieldAlert, Sliders, LayoutGrid
+  Maximize2, MousePointer, ShieldAlert, Sliders, LayoutGrid, Palette, RotateCcw
 } from 'lucide-react';
 
-// Get heatmap color based on effective U-value
-function getThermalColor(uValue: number, isOpening: boolean = false): string {
-  if (isOpening) return '#ef4444'; // Red for windows/doors
-  if (uValue <= 0) return '#94a3b8'; // Neutral slate
-  if (uValue <= 0.18) return '#22c55e'; // Green: Highly insulated
-  if (uValue <= 0.50) return '#f59e0b'; // Yellow/Orange: Standard insulation
-  return '#ef4444'; // Red: High heat loss
+function getThermalColor(uValue: number, isOpening: boolean = false, theme: Viewer3DTheme = DEFAULT_VIEWER_3D_THEME): string {
+  if (isOpening) return theme.heatmap_high;
+  if (uValue <= 0) return '#94a3b8';
+  if (uValue <= 0.18) return theme.heatmap_low;
+  if (uValue <= 0.50) return theme.heatmap_mid;
+  return theme.heatmap_high;
 }
 
-// Procedural Triangular Prism Geometry for Gable Roofs (Centered origin Y_min = -height/2, Y_max = +height/2)
 export function createTriangularPrismGeometry(width: number, height: number, length: number) {
   const geom = new THREE.BufferGeometry();
   const halfW = width / 2;
   const halfH = height / 2;
   const halfL = length / 2;
 
-  // Vertices centered around (0,0,0) so origin aligns perfectly with group bounding box
   const vertices = new Float32Array([
-    // Front triangle face (+Z)
     -halfW, -halfH, halfL,
      halfW, -halfH, halfL,
      0,      halfH, halfL,
 
-    // Back triangle face (-Z)
      halfW, -halfH, -halfL,
     -halfW, -halfH, -halfL,
      0,      halfH, -halfL,
 
-    // Left pitched roof slope
     -halfW, -halfH, halfL,
      0,      halfH, halfL,
      0,      halfH, -halfL,
     -halfW, -halfH, -halfL,
 
-    // Right pitched roof slope
      0,      halfH, halfL,
      halfW, -halfH, halfL,
      halfW, -halfH, -halfL,
      0,      halfH, -halfL,
 
-    // Bottom base face (-Y)
     -halfW, -halfH, -halfL,
      halfW, -halfH, -halfL,
      halfW, -halfH, halfL,
@@ -65,11 +57,11 @@ export function createTriangularPrismGeometry(width: number, height: number, len
   ]);
 
   const indices = [
-    0, 1, 2,       // Front triangle
-    3, 4, 5,       // Back triangle
-    6, 7, 8,  6, 8, 9,   // Left slope
-    10, 11, 12, 10, 12, 13, // Right slope
-    14, 15, 16, 14, 16, 17  // Bottom base
+    0, 1, 2,
+    3, 4, 5,
+    6, 7, 8,  6, 8, 9,
+    10, 11, 12, 10, 12, 13,
+    14, 15, 16, 14, 16, 17
   ];
 
   geom.setIndex(indices);
@@ -80,9 +72,76 @@ export function createTriangularPrismGeometry(width: number, height: number, len
   return geom;
 }
 
+interface StoreyPlaneProps {
+  storey: Storey;
+  theme: Viewer3DTheme;
+  isSelected: boolean;
+  onSelectStorey: (id: string) => void;
+  updateStorey: (id: string, updated: Partial<Storey>) => void;
+}
+
+const StoreyLevelPlaneMesh: React.FC<StoreyPlaneProps> = ({ storey, theme, isSelected, onSelectStorey, updateStorey }) => {
+  const groupRef = useRef<THREE.Group>(null!);
+
+  const handlePlaneTransform = () => {
+    if (!groupRef.current) return;
+    const newZ = Math.round(groupRef.current.position.y * 10) / 10;
+    updateStorey(storey.id, { level_z: newZ });
+  };
+
+  return (
+    <>
+      <group
+        ref={groupRef}
+        position={[0, storey.level_z ?? 0, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectStorey(storey.id);
+        }}
+      >
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[30, 30]} />
+          <meshStandardMaterial
+            color={isSelected ? '#f59e0b' : theme.storey_plane_color}
+            transparent
+            opacity={theme.storey_plane_opacity}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        <lineSegments rotation={[-Math.PI / 2, 0, 0]}>
+          <edgesGeometry args={[new THREE.PlaneGeometry(30, 30)]} />
+          <lineBasicMaterial color={isSelected ? '#f59e0b' : theme.storey_plane_color} linewidth={2} />
+        </lineSegments>
+
+        <Text
+          position={[-14, 0.2, -14]}
+          fontSize={0.4}
+          color="#ffffff"
+          anchorX="left"
+          anchorY="bottom"
+        >
+          {`${storey.name} (Z = ${storey.level_z ?? 0}m)`}
+        </Text>
+      </group>
+
+      {isSelected && groupRef.current && (
+        <TransformControls
+          object={groupRef.current}
+          mode="translate"
+          showX={false}
+          showZ={false}
+          onChange={handlePlaneTransform}
+          onMouseUp={handlePlaneTransform}
+        />
+      )}
+    </>
+  );
+};
+
 interface RoomMeshProps {
   room: Room;
   levelZ: number;
+  storeyName: string;
   elements: EnvelopeElement[];
   assemblies: Assembly[];
   materials: Material[];
@@ -99,6 +158,7 @@ interface RoomMeshProps {
   preventCollision: boolean;
   rooms: Room[];
   storeys: Storey[];
+  theme: Viewer3DTheme;
   onSelectRoom: (id: string) => void;
   onSelectElement: (id: string) => void;
   onFaceClick?: (roomId: string, faceIndex: number, point: THREE.Vector3) => void;
@@ -108,6 +168,7 @@ interface RoomMeshProps {
 const RoomMesh: React.FC<RoomMeshProps> = ({
   room,
   levelZ,
+  storeyName,
   elements,
   assemblies,
   materials,
@@ -124,6 +185,7 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
   preventCollision,
   rooms,
   storeys,
+  theme,
   onSelectRoom,
   onSelectElement,
   onFaceClick,
@@ -145,13 +207,10 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
 
   const isSelected = selectedRoomId === room.id;
 
-  // Linked envelope elements (filtering out virtual/manual elements from 3D viewport rendering)
   const roomElements = useMemo(() => {
     return elements.filter((e) => e.room_id === room.id && !e.is_virtual && e.source !== 'manual');
   }, [elements, room.id]);
 
-  // Face U-values mapping matching Three.js BoxGeometry face material indices:
-  // 0: Right (+X), 1: Left (-X), 2: Top (+Y), 3: Bottom (-Y), 4: Front (+Z), 5: Back (-Z)
   const faceUValues = useMemo(() => {
     const uVals = [0, 0, 0, 0, 0, 0];
     roomElements.forEach((el) => {
@@ -166,7 +225,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     return uVals;
   }, [roomElements, assemblies, materials]);
 
-  // Child Openings with explicit face index mapping
   const childOpenings = useMemo(() => {
     const openings: {
       id: string;
@@ -181,7 +239,7 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     roomElements.forEach((parent) => {
       const children = elements.filter((child) => child.parent_element_id === parent.id);
       children.forEach((child) => {
-        let faceIndex = 4; // default Front
+        let faceIndex = 4;
 
         if (child.parent_face) {
           switch (child.parent_face) {
@@ -203,16 +261,16 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           }
         } else if (parent.tilt === 0) {
           if (parent.name.toLowerCase().includes('podlaha') || parent.id.includes('floor')) {
-            faceIndex = 3; // Bottom / Floor
+            faceIndex = 3;
           } else {
-            faceIndex = 2; // Top / Ceiling
+            faceIndex = 2;
           }
         } else {
           const normAngle = ((parent.relative_angle % 360) + 360) % 360;
-          if (normAngle >= 315 || normAngle < 45) faceIndex = 4; // Front (+Z)
-          else if (normAngle >= 45 && normAngle < 135) faceIndex = 0; // Right (+X)
-          else if (normAngle >= 135 && normAngle < 225) faceIndex = 5; // Back (-Z)
-          else if (normAngle >= 225 && normAngle < 315) faceIndex = 1; // Left (-X)
+          if (normAngle >= 315 || normAngle < 45) faceIndex = 4;
+          else if (normAngle >= 45 && normAngle < 135) faceIndex = 0;
+          else if (normAngle >= 135 && normAngle < 225) faceIndex = 5;
+          else if (normAngle >= 225 && normAngle < 315) faceIndex = 1;
         }
 
         openings.push({
@@ -232,25 +290,25 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
 
   const materialsList = useMemo(() => {
     if (!heatmapOverlay) {
-      const defaultColor = isSelected ? '#6366f1' : '#38bdf8';
+      const defaultColor = isSelected ? '#6366f1' : theme.room_color;
       return [
         { color: defaultColor, opacity: 0.65 },
         { color: defaultColor, opacity: 0.65 },
         { color: defaultColor, opacity: 0.65 },
         { color: defaultColor, opacity: 0.65 },
-        { color: '#818cf8', opacity: 0.7 },
-        { color: '#94a3b8', opacity: 0.7 }
+        { color: defaultColor, opacity: 0.7 },
+        { color: defaultColor, opacity: 0.7 }
       ];
     }
     return [
-      { color: getThermalColor(faceUValues[0]), opacity: 0.85 }, // Right (+X)
-      { color: getThermalColor(faceUValues[1]), opacity: 0.85 }, // Left (-X)
-      { color: getThermalColor(faceUValues[2]), opacity: 0.85 }, // Top (+Y)
-      { color: getThermalColor(faceUValues[3]), opacity: 0.85 }, // Bottom (-Y)
-      { color: getThermalColor(faceUValues[4]), opacity: 0.85 }, // Front (+Z)
-      { color: getThermalColor(faceUValues[5]), opacity: 0.85 }  // Back (-Z)
+      { color: getThermalColor(faceUValues[0], false, theme), opacity: 0.85 },
+      { color: getThermalColor(faceUValues[1], false, theme), opacity: 0.85 },
+      { color: getThermalColor(faceUValues[2], false, theme), opacity: 0.85 },
+      { color: getThermalColor(faceUValues[3], false, theme), opacity: 0.85 },
+      { color: getThermalColor(faceUValues[4], false, theme), opacity: 0.85 },
+      { color: getThermalColor(faceUValues[5], false, theme), opacity: 0.85 }
     ];
-  }, [heatmapOverlay, faceUValues, isSelected]);
+  }, [heatmapOverlay, faceUValues, isSelected, theme]);
 
   const highlightFace = activeFaceIndex !== null ? activeFaceIndex : (isSelected ? hoveredFaceIndex : null);
 
@@ -272,7 +330,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     lastValidPosRef.current = { x: centerX, z: centerZ };
   }, [centerX, centerZ]);
 
-  // Continuous Handle Transform Gizmo Change with Magnetic Snapping & Collision Constraints
   const handleTransformChange = () => {
     if (!groupRef.current) return;
     const currentGroup = groupRef.current;
@@ -284,13 +341,11 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
       let newPosX = candidateCenterX - width / 2;
       let newPosY = candidateCenterZ - length / 2;
 
-      // 1. Grid Snapping
       if (gridSnap && snapStep > 0) {
         newPosX = Math.round(newPosX / snapStep) * snapStep;
         newPosY = Math.round(newPosY / snapStep) * snapStep;
       }
 
-      // 2. Magnetic Face Snapping
       if (magneticSnap) {
         const snapRes = applyMagneticFaceSnapping(
           room,
@@ -305,7 +360,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
         newPosY = snapRes.snappedY;
       }
 
-      // 3. AABB Collision Prevention
       const candidateAABB = {
         roomId: room.id,
         minX: newPosX,
@@ -320,13 +374,11 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
       };
 
       if (preventCollision && checkRoomAABBCollision(room.id, candidateAABB, rooms, storeys)) {
-        // Continuous Collision Block: Instantly revert mesh position during drag frames
         currentGroup.position.x = lastValidPosRef.current.x;
         currentGroup.position.z = lastValidPosRef.current.z;
         return;
       }
 
-      // Record valid non-colliding location
       lastValidPosRef.current = { x: newPosX + width / 2, z: newPosY + length / 2 };
 
       updateRoom(room.id, {
@@ -363,7 +415,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     }
   };
 
-  // Custom Prism Geometry
   const prismGeometry = useMemo(() => {
     if (shapeType === 'triangular_prism') {
       return createTriangularPrismGeometry(width, height, length);
@@ -371,7 +422,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     return null;
   }, [shapeType, width, height, length]);
 
-  // Dispose prism geometry on shape changes or unmount
   React.useEffect(() => {
     return () => {
       if (prismGeometry) {
@@ -383,7 +433,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
   return (
     <>
       <group ref={groupRef} position={[centerX, centerY, centerZ]}>
-        {/* Box Geometry or Triangular Roof Prism Geometry */}
         {shapeType === 'triangular_prism' && prismGeometry ? (
           <mesh
             key={`prism-${room.id}-${width}-${height}-${length}`}
@@ -435,7 +484,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           </mesh>
         )}
 
-        {/* Target Face Selection Highlighting Overlay */}
         {highlightFace !== null && shapeType === 'box' && (
           <group position={getFaceOverlayProps(highlightFace).pos} rotation={getFaceOverlayProps(highlightFace).rot}>
             <mesh>
@@ -457,24 +505,23 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           </group>
         )}
 
-        {/* Wireframe Outline */}
         <lineSegments>
           <edgesGeometry args={[new THREE.BoxGeometry(width, height, length)]} />
-          <lineBasicMaterial color={isSelected ? '#4f46e5' : '#1e293b'} linewidth={isSelected ? 2 : 1} />
+          <lineBasicMaterial color={isSelected ? '#4f46e5' : theme.wireframe_color} linewidth={isSelected ? 2 : 1} />
         </lineSegments>
 
-        {/* Room Label */}
         <Text
-          position={[0, height / 2 + 0.3, 0]}
-          fontSize={0.35}
-          color="#1e293b"
+          position={[0, height / 2 + 0.35, 0]}
+          fontSize={0.38}
+          color="#ffffff"
+          outlineColor="#000000"
+          outlineWidth={0.04}
           anchorX="center"
           anchorY="bottom"
         >
-          {room.name}
+          {`${room.name} (${storeyName})`}
         </Text>
 
-        {/* Child Openings */}
         {childOpenings.map((opening) => {
           const winW = opening.element.opening_width || Math.min(1.5, Math.sqrt(opening.area));
           const winH = opening.element.opening_height || (opening.area / winW);
@@ -487,35 +534,33 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           let baseRot: [number, number, number] = [0, 0, 0];
           let shiftAxis: 'x' | 'z' = 'x';
 
-          // Explicit face positioning mapping:
-          // 0: Right (+X), 1: Left (-X), 2: Top (+Y), 3: Bottom (-Y), 4: Front (+Z), 5: Back (-Z)
           switch (opening.faceIndex) {
-            case 0: // Right (+X)
+            case 0:
               basePos = [width / 2 + 0.015, offY, offX];
               baseRot = [0, Math.PI / 2, 0];
               shiftAxis = 'z';
               break;
-            case 1: // Left (-X)
+            case 1:
               basePos = [-width / 2 - 0.015, offY, offX];
               baseRot = [0, -Math.PI / 2, 0];
               shiftAxis = 'z';
               break;
-            case 2: // Top / Ceiling (+Y)
+            case 2:
               basePos = [offX, height / 2 + 0.015, offY];
               baseRot = [-Math.PI / 2, 0, 0];
               shiftAxis = 'x';
               break;
-            case 3: // Bottom / Floor (-Y)
+            case 3:
               basePos = [offX, -height / 2 - 0.015, offY];
               baseRot = [Math.PI / 2, 0, 0];
               shiftAxis = 'x';
               break;
-            case 4: // Front (+Z)
+            case 4:
               basePos = [offX, offY, length / 2 + 0.015];
               baseRot = [0, 0, 0];
               shiftAxis = 'x';
               break;
-            case 5: // Back (-Z)
+            case 5:
               basePos = [offX, offY, -length / 2 - 0.015];
               baseRot = [0, Math.PI, 0];
               shiftAxis = 'x';
@@ -526,10 +571,9 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           const openingColor = isOpeningSelected
             ? '#f59e0b'
             : heatmapOverlay
-            ? getThermalColor(opening.uValue, true)
-            : '#0284c7';
+            ? getThermalColor(opening.uValue, true, theme)
+            : theme.opening_color;
 
-          // Side-by-side positioning for count > 1
           const spacing = winW + 0.15;
           const instances = Array.from({ length: count }, (_, i) => {
             const shiftOffset = (i - (count - 1) / 2) * spacing;
@@ -563,7 +607,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
                     />
                   </mesh>
 
-                  {/* Highlight selection wireframe outline */}
                   {isOpeningSelected && (
                     <lineSegments>
                       <edgesGeometry args={[new THREE.PlaneGeometry(winW, winH)]} />
@@ -573,7 +616,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
                 </group>
               ))}
 
-              {/* Quantity Count Badge Text Overlay for count > 1 */}
               {count > 1 && (
                 <group position={basePos} rotation={baseRot}>
                   <Text
@@ -592,7 +634,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
         })}
       </group>
 
-      {/* Transform Controls with Continuous Drag Evaluation */}
       {isSelected && transformMode !== 'view' && groupRef.current && (
         <TransformControls
           object={groupRef.current}
@@ -607,7 +648,6 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
   );
 };
 
-// Sun light
 function SunLight({ orientation }: { orientation: number }) {
   const rad = (orientation * Math.PI) / 180;
   const x = 20 * Math.sin(rad);
@@ -624,7 +664,6 @@ function SunLight({ orientation }: { orientation: number }) {
   );
 }
 
-// 3D Compass
 function Compass3D({ orientation }: { orientation: number }) {
   const rad = (-orientation * Math.PI) / 180;
 
@@ -649,7 +688,6 @@ function Compass3D({ orientation }: { orientation: number }) {
   );
 }
 
-// Contact Partitions
 function ContactPartitionMeshes({ contacts }: { contacts: RoomContact[] }) {
   return (
     <>
@@ -680,6 +718,9 @@ export const BuildingViewer3D: React.FC = () => {
 
   const magneticSnapDistance = useHeatLossStore((state) => state.magnetic_snap_distance);
   const setMagneticSnapDistance = useHeatLossStore((state) => state.setMagneticSnapDistance);
+  const theme = useHeatLossStore((state) => state.viewer_3d_theme);
+  const updateViewer3DTheme = useHeatLossStore((state) => state.updateViewer3DTheme);
+  const resetViewer3DTheme = useHeatLossStore((state) => state.resetViewer3DTheme);
 
   const addRoom = useHeatLossStore((state) => state.addRoom);
   const updateRoom = useHeatLossStore((state) => state.updateRoom);
@@ -687,16 +728,19 @@ export const BuildingViewer3D: React.FC = () => {
   const addElement = useHeatLossStore((state) => state.addElement);
   const updateElement = useHeatLossStore((state) => state.updateElement);
   const addStorey = useHeatLossStore((state) => state.addStorey);
+  const updateStorey = useHeatLossStore((state) => state.updateStorey);
 
   const [heatmapOverlay, setHeatmapOverlay] = useState<boolean>(true);
   const [wireframe, setWireframe] = useState<boolean>(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedStoreyId, setSelectedStoreyId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [transformMode, setTransformMode] = useState<'translate' | 'scale' | 'view'>('translate');
-  const [gridSnap, setGridSnap] = useState<boolean>(true);
+  const [gridSnap, setGridSnap] = useState<boolean>(false); // Default OFF
   const [snapStep, setSnapStep] = useState<number>(0.5);
   const [magneticSnap, setMagneticSnap] = useState<boolean>(true);
   const [preventCollision, setPreventCollision] = useState<boolean>(true);
+  const [showThemePanel, setShowThemePanel] = useState<boolean>(false);
   const orbitControlsRef = useRef<any>(null);
 
   const handleResetView = () => {
@@ -852,6 +896,17 @@ export const BuildingViewer3D: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setShowThemePanel(!showThemePanel)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              showThemePanel ? 'bg-indigo-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+            title="Prvky a barvy 3D / 3D Theme & Colors"
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>Barvy 3D</span>
+          </button>
+
+          <button
             onClick={handleResetView}
             className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
             title={t.viewer3d?.resetView || 'Obnovit pohled'}
@@ -861,7 +916,7 @@ export const BuildingViewer3D: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating 3D Editor Toolbar (Mobile Responsive) */}
+      {/* Floating 3D Editor Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs overflow-x-auto max-w-full">
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Transform Mode Switcher */}
@@ -893,7 +948,7 @@ export const BuildingViewer3D: React.FC = () => {
             {t.viewer3d?.modeView || 'Prohlížení'}
           </button>
 
-          {/* Magnetic Face Snap Toggle & Sensitivity Distance Slider */}
+          {/* Magnetic Face Snap Toggle & Sensitivity Distance Slider (Up to 1.0m) */}
           <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-md px-1.5 py-1">
             <button
               onClick={() => setMagneticSnap(!magneticSnap)}
@@ -911,9 +966,9 @@ export const BuildingViewer3D: React.FC = () => {
                   type="number"
                   step="0.05"
                   min="0.02"
-                  max="0.50"
+                  max="1.00"
                   value={magneticSnapDistance}
-                  onChange={(e) => setMagneticSnapDistance(parseFloat(e.target.value) || 0.15)}
+                  onChange={(e) => setMagneticSnapDistance(parseFloat(e.target.value) || 0.50)}
                   className="w-12 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-800 font-mono"
                   title={t.viewer3d?.magnetSensitivity || 'Citlivost magnetu (m)'}
                 />
@@ -960,18 +1015,18 @@ export const BuildingViewer3D: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAddOpeningPanel(!showAddOpeningPanel)}
-              className={`px-2.5 py-1.5 rounded-md font-semibold flex items-center gap-1 transition-colors ${
-                showAddOpeningPanel
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-              }`}
-              title={t.viewer3d?.addOpeningToWall || 'Přidat otvor na stěnu'}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{t.viewer3d?.addOpeningToggle || 'Dodatečný otvor'}</span>
-            </button>
+          <button
+            onClick={() => setShowAddOpeningPanel(!showAddOpeningPanel)}
+            className={`px-2.5 py-1.5 rounded-md font-semibold flex items-center gap-1 transition-colors ${
+              showAddOpeningPanel
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+            title={t.viewer3d?.addOpeningToWall || 'Přidat otvor na stěnu'}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{t.viewer3d?.addOpeningToggle || 'Dodatečný otvor'}</span>
+          </button>
 
           <button
             onClick={handleAddDefaultRoom}
@@ -994,7 +1049,7 @@ export const BuildingViewer3D: React.FC = () => {
       </div>
 
       {/* 3D WebGL Canvas Container */}
-      <div className="relative w-full h-[480px] bg-slate-900 rounded-xl overflow-hidden shadow-inner">
+      <div className="relative w-full h-[480px] rounded-xl overflow-hidden shadow-inner" style={{ backgroundColor: theme.bg_color }}>
         <Canvas
           camera={{ position: [14, 14, 18], fov: 45 }}
           shadows
@@ -1009,6 +1064,22 @@ export const BuildingViewer3D: React.FC = () => {
 
           <Compass3D orientation={settings.building_orientation ?? 0} />
 
+          {/* Render Interactive Storey Level Planes */}
+          {storeys.map((storey) => (
+            <StoreyLevelPlaneMesh
+              key={storey.id}
+              storey={storey}
+              theme={theme}
+              isSelected={selectedStoreyId === storey.id}
+              onSelectStorey={(id) => {
+                setSelectedStoreyId(selectedStoreyId === id ? null : id);
+                setSelectedRoomId(null);
+                setSelectedElementId(null);
+              }}
+              updateStorey={updateStorey}
+            />
+          ))}
+
           <ContactPartitionMeshes contacts={roomContacts} />
 
           {storeys.length > 0 && storeys.map((storey) => {
@@ -1018,6 +1089,7 @@ export const BuildingViewer3D: React.FC = () => {
                 key={room.id}
                 room={room}
                 levelZ={storey.level_z ?? 0}
+                storeyName={storey.name}
                 elements={elements}
                 assemblies={assemblies}
                 materials={materials}
@@ -1034,8 +1106,10 @@ export const BuildingViewer3D: React.FC = () => {
                 preventCollision={preventCollision}
                 rooms={rooms}
                 storeys={storeys}
+                theme={theme}
                 onSelectRoom={(id) => {
                   setSelectedRoomId(selectedRoomId === id ? null : id);
+                  setSelectedStoreyId(null);
                   setSelectedElementId(null);
                   if (id) {
                     setTimeout(() => nameInputRef.current?.focus(), 50);
@@ -1056,6 +1130,7 @@ export const BuildingViewer3D: React.FC = () => {
               key={room.id}
               room={room}
               levelZ={0}
+              storeyName="Nazařazeno"
               elements={elements}
               assemblies={assemblies}
               materials={materials}
@@ -1072,8 +1147,10 @@ export const BuildingViewer3D: React.FC = () => {
               preventCollision={preventCollision}
               rooms={rooms}
               storeys={storeys}
+              theme={theme}
               onSelectRoom={(id) => {
                 setSelectedRoomId(selectedRoomId === id ? null : id);
+                setSelectedStoreyId(null);
                 setSelectedElementId(null);
                 if (id) {
                   setTimeout(() => nameInputRef.current?.focus(), 50);
@@ -1110,8 +1187,8 @@ export const BuildingViewer3D: React.FC = () => {
           </div>
         )}
 
-        {/* Wall Opening Creation Overlay Panel (Moved strictly to bottom-left corner and toggleable) */}
-        {(showAddOpeningPanel || surfaceContextMenu) && (
+        {/* Dodatečný otvor Panel: Strictly hidden when showAddOpeningPanel is false and no context menu */}
+        {showAddOpeningPanel && (
           <div className="absolute bottom-3 left-3 bg-slate-900/95 border border-indigo-500 rounded-xl p-3 text-xs text-white shadow-2xl space-y-2 min-w-[220px] max-w-[250px] z-20 backdrop-blur-md">
             <div className="font-bold text-indigo-400 border-b border-slate-700 pb-1 flex justify-between items-center">
               <span>{t.viewer3d?.addOpeningToWall || 'Přidat otvor na stěnu'}</span>
@@ -1159,6 +1236,108 @@ export const BuildingViewer3D: React.FC = () => {
           </div>
         )}
 
+        {/* 3D Theme & Colors Customization Panel */}
+        {showThemePanel && (
+          <div className="absolute top-3 left-3 bg-slate-900/95 backdrop-blur-md border border-indigo-500 rounded-xl p-3 text-xs text-slate-200 shadow-2xl space-y-2 max-w-[280px] z-30">
+            <div className="font-bold text-indigo-400 border-b border-slate-700 pb-1 flex justify-between items-center">
+              <span className="flex items-center gap-1.5">
+                <Palette className="w-4 h-4 text-indigo-400" />
+                <span>Prvky a barvy 3D</span>
+              </span>
+              <button onClick={() => setShowThemePanel(false)} className="text-slate-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 text-[11px]">
+              <div className="flex items-center justify-between">
+                <label>Pozadí 3D plátna</label>
+                <input
+                  type="color"
+                  value={theme.bg_color}
+                  onChange={(e) => updateViewer3DTheme({ bg_color: e.target.value })}
+                  className="w-8 h-6 bg-transparent border-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label>Výchozí barva místností</label>
+                <input
+                  type="color"
+                  value={theme.room_color}
+                  onChange={(e) => updateViewer3DTheme({ room_color: e.target.value })}
+                  className="w-8 h-6 bg-transparent border-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label>Barva hrán a drátů</label>
+                <input
+                  type="color"
+                  value={theme.wireframe_color}
+                  onChange={(e) => updateViewer3DTheme({ wireframe_color: e.target.value })}
+                  className="w-8 h-6 bg-transparent border-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label>Roviny podlaží</label>
+                <input
+                  type="color"
+                  value={theme.storey_plane_color}
+                  onChange={(e) => updateViewer3DTheme({ storey_plane_color: e.target.value })}
+                  className="w-8 h-6 bg-transparent border-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label>Barva výplní otvorů</label>
+                <input
+                  type="color"
+                  value={theme.opening_color}
+                  onChange={(e) => updateViewer3DTheme({ opening_color: e.target.value })}
+                  className="w-8 h-6 bg-transparent border-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="pt-1 border-t border-slate-800">
+                <label className="block text-[10px] text-slate-400 mb-1">Tepelná mapa (Nízká / Střední / Vysoká ztráta)</label>
+                <div className="flex items-center justify-between gap-1">
+                  <input
+                    type="color"
+                    value={theme.heatmap_low}
+                    onChange={(e) => updateViewer3DTheme({ heatmap_low: e.target.value })}
+                    className="w-7 h-5 bg-transparent border-0 cursor-pointer"
+                    title="Nízká ztráta (Dobře izolováno)"
+                  />
+                  <input
+                    type="color"
+                    value={theme.heatmap_mid}
+                    onChange={(e) => updateViewer3DTheme({ heatmap_mid: e.target.value })}
+                    className="w-7 h-5 bg-transparent border-0 cursor-pointer"
+                    title="Střední ztráta"
+                  />
+                  <input
+                    type="color"
+                    value={theme.heatmap_high}
+                    onChange={(e) => updateViewer3DTheme({ heatmap_high: e.target.value })}
+                    className="w-7 h-5 bg-transparent border-0 cursor-pointer"
+                    title="Vysoká ztráta / Otvory"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={resetViewer3DTheme}
+                className="w-full mt-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Obnovit výchozí barvy</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Direct Numeric Dimension Input Panel for Selected Room */}
         {selectedRoom && (
           <div className="absolute top-3 right-3 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl p-3 text-xs text-slate-200 shadow-2xl space-y-2 max-w-[260px] z-10">
@@ -1172,7 +1351,6 @@ export const BuildingViewer3D: React.FC = () => {
               </button>
             </div>
 
-            {/* Prominent Room Name Input Field */}
             <div>
               <label className="block text-[10px] text-indigo-300 font-semibold mb-0.5">
                 {t.viewer3d?.roomName || 'Název místnosti'}
@@ -1186,7 +1364,6 @@ export const BuildingViewer3D: React.FC = () => {
               />
             </div>
 
-            {/* Shape Selector */}
             <div>
               <label className="block text-[10px] text-slate-400 mb-0.5">{t.viewer3d?.shapeType || 'Tvar tělesa'}</label>
               <select
@@ -1199,7 +1376,6 @@ export const BuildingViewer3D: React.FC = () => {
               </select>
             </div>
 
-            {/* W, L, H Inputs */}
             <div className="grid grid-cols-3 gap-1.5">
               <div>
                 <label className="block text-[10px] text-slate-400">W (Šířka)</label>
@@ -1244,7 +1420,6 @@ export const BuildingViewer3D: React.FC = () => {
               </div>
             </div>
 
-            {/* X, Y Offsets */}
             <div className="grid grid-cols-2 gap-1.5">
               <div>
                 <label className="block text-[10px] text-slate-400">Posun X (m)</label>
@@ -1268,12 +1443,10 @@ export const BuildingViewer3D: React.FC = () => {
               </div>
             </div>
 
-            {/* Place on Top Face Helper Button */}
             <button
               onClick={() => {
                 const currentStorey = storeys.find((s) => s.id === selectedRoom.storey_id);
                 const currentLevelZ = currentStorey?.level_z ?? 0;
-                // Find target storey at highest level
                 const highestLevelZ = Math.max(...rooms.map((r) => {
                   const s = storeys.find((st) => st.id === r.storey_id);
                   return (s?.level_z ?? 0) + (r.height || 2.7);
@@ -1281,7 +1454,6 @@ export const BuildingViewer3D: React.FC = () => {
 
                 const targetLevel = highestLevelZ > currentLevelZ ? highestLevelZ : currentLevelZ + (selectedRoom.height || 2.7);
 
-                // Find or create upper storey
                 let targetStorey = storeys.find((s) => Math.abs(s.level_z - targetLevel) < 0.05);
                 if (!targetStorey) {
                   const newStoreyId = generateUUID();
@@ -1350,7 +1522,6 @@ export const BuildingViewer3D: React.FC = () => {
               <span className="text-slate-400">Celková plocha (A_celk):</span> <span className="font-bold text-white font-mono">{((selectedElement.area) * (selectedElement.count || 1)).toFixed(2)} m²</span>
             </div>
 
-            {/* Delete Opening Action Button */}
             <button
               onClick={() => {
                 deleteElement(selectedElement.id);

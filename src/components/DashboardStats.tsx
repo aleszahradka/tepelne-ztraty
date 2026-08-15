@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useHeatLossStore } from '../store';
 import {
   calculateTransmissionLoss,
@@ -6,7 +6,7 @@ import {
   calculateTotalBuildingTransmissionLoss,
   calculateTotalBuildingVentilationLoss
 } from '../mathEngine';
-import { Flame, Layers, TrendingDown } from 'lucide-react';
+import { Flame, Layers, TrendingDown, Filter } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
 
 export const DashboardStats: React.FC = () => {
@@ -16,9 +16,29 @@ export const DashboardStats: React.FC = () => {
   const materials = useHeatLossStore((state) => state.materials);
   const settings = useHeatLossStore((state) => state.environmental_settings);
   const rooms = useHeatLossStore((state) => state.rooms);
+  const storeys = useHeatLossStore((state) => state.storeys);
 
-  // Compute transmission losses per element
-  const transmissionLosses = elements.map((el) => ({
+  // Filter state for distribution chart
+  const [selectedStoreyId, setSelectedStoreyId] = useState<string>('all');
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('all');
+
+  // Filter elements according to Storey and Room selection
+  const filteredElements = elements.filter((el) => {
+    if (selectedRoomId !== 'all') {
+      if (selectedRoomId === 'unassigned' && el.room_id) return false;
+      if (selectedRoomId !== 'unassigned' && el.room_id !== selectedRoomId) return false;
+    }
+    if (selectedStoreyId !== 'all') {
+      if (!el.room_id) return false;
+      const room = rooms.find((r) => r.id === el.room_id);
+      if (selectedStoreyId === 'unassigned' && room?.storey_id) return false;
+      if (selectedStoreyId !== 'unassigned' && room?.storey_id !== selectedStoreyId) return false;
+    }
+    return true;
+  });
+
+  // Compute transmission losses per filtered element
+  const transmissionLosses = filteredElements.map((el) => ({
     id: el.id,
     name: el.name,
     loss: calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms),
@@ -33,14 +53,14 @@ export const DashboardStats: React.FC = () => {
   // Total Envelope Area
   const totalArea = elements.reduce((sum, el) => sum + el.area, 0);
 
-  // Average effective U-Value of the building envelope: (Sum of A * U_eff) / Sum of A
+  // Average effective U-Value of the building envelope
   const sumAU = elements.reduce((sum, el) => {
     const uEff = calculateEffectiveUValue(el, assemblies, materials);
     return sum + (el.area * uEff);
   }, 0);
   const avgUValue = totalArea > 0 ? sumAU / totalArea : 0;
 
-  // Percentages for beautiful visual bars
+  // Percentages for visual bars
   const transmissionPct = totalLoss > 0 ? (totalTransmission / totalLoss) * 100 : 0;
   const ventilationPct = totalLoss > 0 ? (totalVentilation / totalLoss) * 100 : 0;
 
@@ -114,7 +134,6 @@ export const DashboardStats: React.FC = () => {
               </span>
             </div>
 
-            {/* Visual ratio bar */}
             <div className="h-4 w-full flex rounded-full overflow-hidden bg-slate-100 mb-4">
               <div
                 style={{ width: `${transmissionPct}%` }}
@@ -146,11 +165,45 @@ export const DashboardStats: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Visual Ranking of Envelope Leak Points */}
+      {/* 2. Visual Ranking of Envelope Leak Points with Storey & Room Filters */}
       <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingDown className="text-amber-500 w-5 h-5" />
-          <h3 className="text-lg font-bold text-slate-800">{t.dashboard.distributionTitle}</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingDown className="text-amber-500 w-5 h-5" />
+            <h3 className="text-lg font-bold text-slate-800">{t.dashboard.distributionTitle}</h3>
+          </div>
+
+          {/* Storey & Room Filter Bar */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+              <Filter className="w-3.5 h-3.5 text-indigo-600" />
+              <select
+                value={selectedStoreyId}
+                onChange={(e) => setSelectedStoreyId(e.target.value)}
+                className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
+              >
+                <option value="all">Všechna podlaží</option>
+                {storeys.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+              <Filter className="w-3.5 h-3.5 text-indigo-600" />
+              <select
+                value={selectedRoomId}
+                onChange={(e) => setSelectedRoomId(e.target.value)}
+                className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
+              >
+                <option value="all">Všechny místnosti</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+                <option value="unassigned">Nezařazené</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <p className="text-slate-500 text-sm mb-6">
@@ -174,7 +227,6 @@ export const DashboardStats: React.FC = () => {
                     {item.loss.toFixed(0)} W <span className="text-slate-400 font-normal text-[10px]">({itemPct.toFixed(1)}%)</span>
                   </div>
                 </div>
-                {/* Progress bar */}
                 <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
                   <div
                     className="bg-amber-500 h-full rounded-full transition-all duration-300"
@@ -185,7 +237,7 @@ export const DashboardStats: React.FC = () => {
             );
           })}
 
-          {totalVentilation > 0 && (
+          {totalVentilation > 0 && selectedRoomId === 'all' && selectedStoreyId === 'all' && (
             <div className="space-y-1">
               <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center gap-2">
@@ -205,9 +257,9 @@ export const DashboardStats: React.FC = () => {
             </div>
           )}
 
-          {elements.length === 0 && (
+          {filteredElements.length === 0 && (
             <div className="text-center p-6 text-slate-400 text-sm">
-              Define envelope surfaces to render loss distribution rankings.
+              Žádné prvky neodpovídají zvolenému filtru podlaží / místnosti.
             </div>
           )}
         </div>

@@ -5,6 +5,30 @@ import { generateRoomBoundarySurfaces } from './spatialEngine';
 
 export { BUILT_IN_MATERIALS };
 
+export interface Viewer3DTheme {
+  bg_color: string;
+  room_color: string;
+  wireframe_color: string;
+  storey_plane_color: string;
+  storey_plane_opacity: number;
+  opening_color: string;
+  heatmap_low: string;
+  heatmap_mid: string;
+  heatmap_high: string;
+}
+
+export const DEFAULT_VIEWER_3D_THEME: Viewer3DTheme = {
+  bg_color: '#0f172a',
+  room_color: '#38bdf8',
+  wireframe_color: '#1e293b',
+  storey_plane_color: '#6366f1',
+  storey_plane_opacity: 0.25,
+  opening_color: '#0284c7',
+  heatmap_low: '#22c55e',
+  heatmap_mid: '#f59e0b',
+  heatmap_high: '#ef4444'
+};
+
 // Helper to generate IDs
 export function generateUUID(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -82,10 +106,14 @@ interface HeatLossState {
   storeys: Storey[];
   rooms: Room[];
   magnetic_snap_distance: number;
+  viewer_3d_theme: Viewer3DTheme;
 
   // Actions
   setLanguage: (lang: 'cs' | 'en') => void;
   setMagneticSnapDistance: (dist: number) => void;
+  updateViewer3DTheme: (theme: Partial<Viewer3DTheme>) => void;
+  resetViewer3DTheme: () => void;
+
   addMaterial: (material: Material) => void;
   deleteMaterial: (id: string) => void;
 
@@ -123,10 +151,19 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
   storeys: INITIAL_STOREYS,
   rooms: INITIAL_ROOMS,
-  magnetic_snap_distance: 0.15,
+  magnetic_snap_distance: 0.50, // Default 0.5m
+  viewer_3d_theme: DEFAULT_VIEWER_3D_THEME,
 
   setMagneticSnapDistance: (dist) => set(() => ({
-    magnetic_snap_distance: Math.min(0.5, Math.max(0.02, dist))
+    magnetic_snap_distance: Math.min(1.0, Math.max(0.02, dist))
+  })),
+
+  updateViewer3DTheme: (updated) => set((state) => ({
+    viewer_3d_theme: { ...state.viewer_3d_theme, ...updated }
+  })),
+
+  resetViewer3DTheme: () => set(() => ({
+    viewer_3d_theme: DEFAULT_VIEWER_3D_THEME
   })),
 
   // Language management
@@ -150,7 +187,7 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   }),
 
   deleteMaterial: (id) => set((state) => ({
-    materials: state.materials.filter((m) => m.id !== id || !m.is_custom) // Cannot delete built-in materials
+    materials: state.materials.filter((m) => m.id !== id || !m.is_custom)
   })),
 
   // Assemblies
@@ -270,13 +307,11 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
     let updatedElements: EnvelopeElement[] = [];
 
     if (isShapeTypeChanged) {
-      // Shape changed (Box <-> Prism): Remove old boundary surfaces and insert fresh ones
       const nonRoomElements = state.envelope_elements.filter((el) => el.room_id !== id);
       const roomChildOpenings = state.envelope_elements.filter(
         (el) => el.room_id === id && el.parent_element_id !== undefined
       );
 
-      // Re-map child openings to new fresh parent surfaces
       const remappedOpenings = roomChildOpenings.map((child) => {
         const matchingParent = freshSurfaces.find(
           (p) => p.parent_face === child.parent_face || p.relative_angle === child.relative_angle
@@ -290,7 +325,6 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
 
       updatedElements = [...nonRoomElements, ...freshSurfaces, ...remappedOpenings];
     } else {
-      // Shape unchanged: Sync gross areas & names of existing generated boundary elements
       const existingRoomSurfaces = state.envelope_elements.filter((el) => el.room_id === id && !el.parent_element_id);
       const hasGeneratedSurfaces = existingRoomSurfaces.length > 0;
 
@@ -321,8 +355,6 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   }),
 
   deleteRoom: (id) => set((state) => {
-    // Delete generated boundary elements of the deleted room
-    // Preserve child openings by clearing parent_element_id & room_id so they move safely to the unassigned elements pool
     const updatedElements = state.envelope_elements
       .filter((e) => e.room_id !== id)
       .map((e) => {
@@ -354,7 +386,6 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       category: typeof m.category === 'string' ? { cs: m.category, en: m.category } : m.category
     }));
 
-    // Merge loaded materials to avoid wiping out default ones if they were missing
     const mergedMaterials = [...BUILT_IN_MATERIALS];
     loadedMaterials.forEach((m) => {
       if (!mergedMaterials.some((bm) => bm.id === m.id)) {
@@ -362,14 +393,12 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       }
     });
 
-    // Fallbacks for envelope elements
     const loadedElements = (project.envelope_elements || []).map((e) => ({
       ...e,
       relative_angle: typeof e.relative_angle === 'number' ? e.relative_angle : 0,
       tilt: typeof e.tilt === 'number' ? e.tilt : 90
     }));
 
-    // Fallbacks for environmental settings
     const loadedSettings: EnvironmentalSettings = {
       ...DEFAULT_ENVIRONMENTAL_SETTINGS,
       ...(project.environmental_settings || {}),

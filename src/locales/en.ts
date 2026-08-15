@@ -267,6 +267,12 @@ export const en: Translations = {
     emptyProject: "Empty Project Start",
     resetCameraOnly: "Reset Camera Only",
     spatialCollision: "3D Spatial Collision",
-    preserveElevation: "Preserve Elevation Level"
+    preserveElevation: "Preserve Elevation Level",
+    storeyLevelPlane: "Storey Level Plane",
+    colors3D: "3D Viewport Colors",
+    bgColor: "Background Color",
+    wireframeColor: "Wireframe Color",
+    heatmapRange: "Heatmap Gradient Range",
+    verticalSnap: "Vertical Snap"
   }
 };
