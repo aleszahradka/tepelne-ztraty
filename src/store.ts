@@ -22,7 +22,7 @@ export const DEFAULT_VIEWER_3D_THEME: Viewer3DTheme = {
   room_color: '#38bdf8',
   wireframe_color: '#1e293b',
   storey_plane_color: '#6366f1',
-  storey_plane_opacity: 0.25,
+  storey_plane_opacity: 0.10,
   opening_color: '#0284c7',
   heatmap_low: '#22c55e',
   heatmap_mid: '#f59e0b',

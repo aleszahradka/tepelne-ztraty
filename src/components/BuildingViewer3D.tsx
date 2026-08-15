@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Text, TransformControls } from '@react-three/drei';
+import { Grid, OrbitControls, Text, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useHeatLossStore, generateUUID, DEFAULT_VIEWER_3D_THEME, type Viewer3DTheme } from '../store';
 import { calculateEffectiveUValue } from '../mathEngine';
@@ -99,13 +99,27 @@ const StoreyLevelPlaneMesh: React.FC<StoreyPlaneProps> = ({ storey, theme, isSel
           onSelectStorey(storey.id);
         }}
       >
+        <Grid
+          position={[0, 0, 0]}
+          args={[100, 100]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={isSelected ? '#f59e0b' : '#cbd5e1'}
+          sectionSize={5}
+          sectionThickness={1.0}
+          sectionColor={isSelected ? '#d97706' : '#64748b'}
+          fadeDistance={60}
+          infiniteGrid
+        />
+
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[30, 30]} />
           <meshStandardMaterial
             color={isSelected ? '#f59e0b' : theme.storey_plane_color}
             transparent
-            opacity={theme.storey_plane_opacity}
+            opacity={theme.storey_plane_opacity ?? 0.1}
             side={THREE.DoubleSide}
+            depthWrite={false}
           />
         </mesh>
         <lineSegments rotation={[-Math.PI / 2, 0, 0]}>
