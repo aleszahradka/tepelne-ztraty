@@ -83,18 +83,21 @@ export function applyMagneticFaceSnapping(
 ): {
   snappedX: number;
   snappedY: number;
-  snappedLevelZ?: number;
+  snappedLevelZ: number;
   isSnappedX: boolean;
   isSnappedY: boolean;
-  isSnappedLevelZ?: boolean;
+  isSnappedLevelZ: boolean;
 } {
   const width = activeRoom.width || (activeRoom.area ? Math.sqrt(activeRoom.area) : 4);
   const length = activeRoom.length || (activeRoom.area ? Math.sqrt(activeRoom.area) : 4);
   const height = activeRoom.height || 2.7;
 
+  const activeStorey = storeys.find((s) => s.id === activeRoom.storey_id);
+  const activeLevelZ = candidateLevelZ ?? activeStorey?.level_z ?? 0;
+
   let snappedX = candidateX;
   let snappedY = candidateY;
-  let snappedLevelZ = candidateLevelZ;
+  let snappedLevelZ = activeLevelZ;
 
   let isSnappedX = false;
   let isSnappedY = false;
@@ -144,10 +147,8 @@ export function applyMagneticFaceSnapping(
     }
 
     // Y-axis (Elevation Level Z) alignment snapping:
-    // Support snapping candidate bottom face directly onto target top face even if candidateLevelZ is inferred
-    const effectiveCandidateLevelZ = candidateLevelZ ?? calculateRoomAABB(activeRoom, storeys).minY;
-    const candidateMinY = effectiveCandidateLevelZ;
-    const candidateMaxY = effectiveCandidateLevelZ + height;
+    const candidateMinY = activeLevelZ;
+    const candidateMaxY = activeLevelZ + height;
 
     // Bottom face near target top face (Stack on top face)
     if (Math.abs(candidateMinY - targetAABB.maxY) < snapThreshold) {
@@ -179,7 +180,7 @@ export function applyMagneticFaceSnapping(
   return {
     snappedX: Math.round(snappedX * 100) / 100,
     snappedY: Math.round(snappedY * 100) / 100,
-    snappedLevelZ: snappedLevelZ !== undefined ? Math.round(snappedLevelZ * 100) / 100 : undefined,
+    snappedLevelZ: Math.round(snappedLevelZ * 100) / 100,
     isSnappedX,
     isSnappedY,
     isSnappedLevelZ

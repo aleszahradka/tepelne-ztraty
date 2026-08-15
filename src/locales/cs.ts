@@ -262,7 +262,10 @@ export const cs = {
     openingQuantity: "Počet otvorů",
     deleteOpening: "Smazat otvor",
     selectedFace: "Vybraná plocha",
-    emptyProject: "Bez objektů (Čistý projekt)"
+    emptyProject: "Bez objektů (Čistý projekt)",
+    resetCameraOnly: "Resetovat pouze kameru",
+    spatialCollision: "Prostorová 3D kolize",
+    preserveElevation: "Zachovat výškovou úroveň"
   }
 };
 export type Translations = typeof cs;

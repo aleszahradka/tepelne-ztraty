@@ -287,6 +287,41 @@ export function runSpatialEngineTests() {
   testPrismGeom.dispose();
   console.log('✓ Test 16 Passed: Three.js prism geometry properly allocated and disposed without memory leaks.');
 
+  // Test 17: Vertical Stacking Validation (1.NP & 2.NP flush stacking)
+  const room1NP: Room = { id: 'r_1np', name: '1.NP', storey_id: 's1', width: 5, length: 5, height: 2.7, area: 25, t_int: 20, air_exchange_rate: 0.5 };
+  const storey2NP: Storey = { id: 's2', name: '2.NP', level_z: 2.7 };
+  const room2NP: Room = { id: 'r_2np', name: '2.NP', storey_id: 's2', width: 5, length: 5, height: 2.7, area: 25, t_int: 20, air_exchange_rate: 0.5 };
+
+  const room2NPAABB = {
+    roomId: 'r_2np',
+    minX: 0, maxX: 5,
+    minY: 2.7, maxY: 5.4, // Resting flush on top of 1.NP (maxY = 2.7)
+    minZ: 0, maxZ: 5,
+    width: 5, height: 2.7, length: 5
+  };
+  const isStackedColliding = checkRoomAABBCollision('r_2np', room2NPAABB, [room1NP], [storeys[0], storey2NP]);
+  assert(isStackedColliding === false, 'Vertical flush stacking (1.NP & 2.NP) must NOT trigger collision rejection');
+  console.log('✓ Test 17 Passed: Vertical stacking (1.NP + 2.NP) allowed without collision rejection.');
+
+  // Test 18: Continuous Interior Clipping Block
+  const clippedAABB = {
+    roomId: 'r_clip',
+    minX: 1.0, maxX: 6.0, // Overlaps room1NP X (0..5) by 4m
+    minY: 0.5, maxY: 3.2, // Overlaps room1NP Y (0..2.7) by 2.2m
+    minZ: 1.0, maxZ: 6.0, // Overlaps room1NP Z (0..5) by 4m
+    width: 5, height: 2.7, length: 5
+  };
+  const isClippingBlocked = checkRoomAABBCollision('r_clip', clippedAABB, [room1NP], storeys);
+  assert(isClippingBlocked === true, 'Interior volume interpenetration must trigger collision block');
+  console.log('✓ Test 18 Passed: Continuous 3D spatial collision engine blocked interior clipping.');
+
+  // Test 19: Elevation-Preserving Magnetic Snapping (Z = 2.7m)
+  const elevatedRoom: Room = { id: 'r_elevated', name: '2.NP Room', storey_id: 's2', width: 5, length: 5, height: 2.7, area: 25, t_int: 20, air_exchange_rate: 0.5, pos_x: 4.88, pos_y: 0 };
+  const elevatedSnapRes = applyMagneticFaceSnapping(elevatedRoom, 4.88, 0, [room2NP], [storeys[0], storey2NP], 0.2, 2.7);
+  assert(elevatedSnapRes.isSnappedX === true, 'X face snapping should trigger for near X');
+  assert(elevatedSnapRes.snappedLevelZ === 2.7, `Snapped level Z must preserve elevation (2.7m), got ${elevatedSnapRes.snappedLevelZ}`);
+  console.log(`✓ Test 19 Passed: Magnetic snapping preserved room height level at Z=${elevatedSnapRes.snappedLevelZ}m without dropping to 0.`);
+
   console.log('--- ALL SPATIAL ENGINE TESTS PASSED SUCCESSFULLY ---');
 }
 

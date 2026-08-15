@@ -266,7 +266,13 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     }
   };
 
-  // Handle Transform Gizmo Change with Magnetic Snapping & Collision Constraints
+  const lastValidPosRef = useRef<{ x: number; z: number }>({ x: centerX, z: centerZ });
+
+  React.useEffect(() => {
+    lastValidPosRef.current = { x: centerX, z: centerZ };
+  }, [centerX, centerZ]);
+
+  // Continuous Handle Transform Gizmo Change with Magnetic Snapping & Collision Constraints
   const handleTransformChange = () => {
     if (!groupRef.current) return;
     const currentGroup = groupRef.current;
@@ -292,7 +298,8 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           newPosY,
           rooms,
           storeys,
-          snapDistance
+          snapDistance,
+          levelZ
         );
         newPosX = snapRes.snappedX;
         newPosY = snapRes.snappedY;
@@ -313,11 +320,14 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
       };
 
       if (preventCollision && checkRoomAABBCollision(room.id, candidateAABB, rooms, storeys)) {
-        // Collision detected: Revert to original position
-        currentGroup.position.x = centerX;
-        currentGroup.position.z = centerZ;
+        // Continuous Collision Block: Instantly revert mesh position during drag frames
+        currentGroup.position.x = lastValidPosRef.current.x;
+        currentGroup.position.z = lastValidPosRef.current.z;
         return;
       }
+
+      // Record valid non-colliding location
+      lastValidPosRef.current = { x: newPosX + width / 2, z: newPosY + length / 2 };
 
       updateRoom(room.id, {
         pos_x: Math.round(newPosX * 100) / 100,
@@ -582,13 +592,14 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
         })}
       </group>
 
-      {/* Transform Controls */}
+      {/* Transform Controls with Continuous Drag Evaluation */}
       {isSelected && transformMode !== 'view' && groupRef.current && (
         <TransformControls
           object={groupRef.current}
           mode={transformMode}
           translationSnap={gridSnap ? snapStep : undefined}
           scaleSnap={gridSnap ? snapStep : undefined}
+          onChange={handleTransformChange}
           onMouseUp={handleTransformChange}
         />
       )}
@@ -686,7 +697,13 @@ export const BuildingViewer3D: React.FC = () => {
   const [snapStep, setSnapStep] = useState<number>(0.5);
   const [magneticSnap, setMagneticSnap] = useState<boolean>(true);
   const [preventCollision, setPreventCollision] = useState<boolean>(true);
-  const [resetKey, setResetKey] = useState<number>(0);
+  const orbitControlsRef = useRef<any>(null);
+
+  const handleResetView = () => {
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.reset();
+    }
+  };
 
   const [surfaceContextMenu, setSurfaceContextMenu] = useState<{
     roomId: string;
@@ -835,7 +852,7 @@ export const BuildingViewer3D: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setResetKey((k) => k + 1)}
+            onClick={handleResetView}
             className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
             title={t.viewer3d?.resetView || 'Obnovit pohled'}
           >
@@ -979,7 +996,6 @@ export const BuildingViewer3D: React.FC = () => {
       {/* 3D WebGL Canvas Container */}
       <div className="relative w-full h-[480px] bg-slate-900 rounded-xl overflow-hidden shadow-inner">
         <Canvas
-          key={resetKey}
           camera={{ position: [14, 14, 18], fov: 45 }}
           shadows
           className="w-full h-full"
@@ -987,7 +1003,7 @@ export const BuildingViewer3D: React.FC = () => {
           <ambientLight intensity={0.7} />
           <SunLight orientation={settings.building_orientation ?? 0} />
 
-          <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
+          <OrbitControls ref={orbitControlsRef} makeDefault enableDamping dampingFactor={0.05} />
 
           <gridHelper args={[40, 40, '#475569', '#334155']} position={[0, -0.01, 0]} />
 

@@ -264,6 +264,9 @@ export const en: Translations = {
     openingQuantity: "Opening Quantity",
     deleteOpening: "Delete Opening",
     selectedFace: "Selected Face",
-    emptyProject: "Empty Project Start"
+    emptyProject: "Empty Project Start",
+    resetCameraOnly: "Reset Camera Only",
+    spatialCollision: "3D Spatial Collision",
+    preserveElevation: "Preserve Elevation Level"
   }
 };
