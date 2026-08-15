@@ -139,9 +139,9 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
 
   const isSelected = selectedRoomId === room.id;
 
-  // Linked envelope elements
+  // Linked envelope elements (filtering out virtual/manual elements from 3D viewport rendering)
   const roomElements = useMemo(() => {
-    return elements.filter((e) => e.room_id === room.id);
+    return elements.filter((e) => e.room_id === room.id && !e.is_virtual && e.source !== 'manual');
   }, [elements, room.id]);
 
   // Face U-values mapping

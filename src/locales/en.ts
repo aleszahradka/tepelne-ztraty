@@ -252,6 +252,9 @@ export const en: Translations = {
     roomEnvelopes: "Room Envelopes",
     generatedFace: "Generated Face",
     adjacentRoom: "Adjacent Room",
-    movedToUnassigned: "Moved to Unassigned"
+    movedToUnassigned: "Moved to Unassigned",
+    manualElement: "Manual Element (Calc only)",
+    unassignedElements: "Unassigned Elements",
+    internalContact: "Internal Contact"
   }
 };

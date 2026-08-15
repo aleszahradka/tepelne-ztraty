@@ -250,7 +250,10 @@ export const cs = {
     roomEnvelopes: "Obálky místností",
     generatedFace: "Vygenerovaná plocha",
     adjacentRoom: "Sousední místnost",
-    movedToUnassigned: "Převedeno do nepřiřazených"
+    movedToUnassigned: "Převedeno do nepřiřazených",
+    manualElement: "Ruční prvek (pouze výpočet)",
+    unassignedElements: "Nepřiřazené prvky",
+    internalContact: "Vnitřní kontakt"
   }
 };
 export type Translations = typeof cs;

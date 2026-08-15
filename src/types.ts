@@ -63,6 +63,8 @@ export interface EnvelopeElement {
   opening_height?: number; // Opening height in meters
   offset_x?: number; // Offset X position on parent surface in meters
   offset_y?: number; // Offset Y position on parent surface in meters
+  is_virtual?: boolean; // True if manually entered without a 3D volume reference (bypasses 3D viewport rendering)
+  source?: 'volume' | 'manual'; // Origin source of envelope surface
 }
 
 export interface EnvironmentalSettings {

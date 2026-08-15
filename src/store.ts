@@ -298,9 +298,16 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   })),
 
   // Envelope Elements
-  addElement: (element) => set((state) => ({
-    envelope_elements: [...state.envelope_elements, element]
-  })),
+  addElement: (element) => set((state) => {
+    const formatted: EnvelopeElement = {
+      ...element,
+      is_virtual: element.is_virtual ?? (!element.room_id && !element.parent_element_id),
+      source: element.source ?? (element.room_id ? 'volume' : 'manual')
+    };
+    return {
+      envelope_elements: [...state.envelope_elements, formatted]
+    };
+  }),
 
   updateElement: (id, updated) => set((state) => ({
     envelope_elements: state.envelope_elements.map((e) => {

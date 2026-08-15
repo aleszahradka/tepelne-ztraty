@@ -424,8 +424,13 @@ export const EnvelopeManager: React.FC = () => {
                           type="text"
                           value={element.name}
                           onChange={(e) => updateElement(element.id, { name: e.target.value })}
-                          className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-red-500 font-semibold text-slate-800 text-sm px-1 py-0.5 w-full outline-none"
+                          className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-red-500 font-semibold text-slate-800 text-sm px-1 py-0.5 outline-none"
                         />
+                        {(element.is_virtual || element.source === 'manual') && (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                            {t.viewer3d?.manualElement || 'Ruční prvek (pouze výpočet)'}
+                          </span>
+                        )}
                       </div>
 
                       {/* Inline parent & room selectors */}
