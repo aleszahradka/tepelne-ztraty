@@ -36,10 +36,15 @@ export interface Room {
   storey_id: string; // Links to Storey.id
   t_int: number; // Indoor design temperature in °C (e.g. 21, 24, 15)
   area: number; // Floor area in m²
-  height: number; // Clear ceiling height in meters (default 2.6)
+  height: number; // Clear ceiling height or ridge height in meters (default 2.6)
   air_exchange_rate: number; // n in 1/h (default 0.5)
   width?: number; // Optional geometric width in meters
   length?: number; // Optional geometric length in meters
+  pos_x?: number; // Offset X in meters on the storey plane, default 0
+  pos_y?: number; // Offset Y in meters on the storey plane, default 0
+  shape_type?: 'box' | 'triangular_prism' | 'trapezoidal_prism'; // 3D geometry shape
+  pitch_angle?: number; // Roof slope pitch angle in degrees (e.g., 35)
+  eave_height?: number; // Eave height for trapezoidal/shed roofs
 }
 
 export interface EnvelopeElement {
@@ -54,6 +59,12 @@ export interface EnvelopeElement {
   room_id?: string; // Optional room ID linking element directly to a Room
   relative_angle: number; // Relative angle (0° = Front, 90° = Right, 180° = Back, 270° = Left). Default 0
   tilt: number; // Tilt angle (90° = Vertical Wall, 0° = Horizontal Roof/Floor, 45° = Pitched Roof). Default 90
+  opening_width?: number; // Opening width in meters
+  opening_height?: number; // Opening height in meters
+  offset_x?: number; // Offset X position on parent surface in meters
+  offset_y?: number; // Offset Y position on parent surface in meters
+  is_virtual?: boolean; // True if manually entered without a 3D volume reference (bypasses 3D viewport rendering)
+  source?: 'volume' | 'manual'; // Origin source of envelope surface
 }
 
 export interface EnvironmentalSettings {

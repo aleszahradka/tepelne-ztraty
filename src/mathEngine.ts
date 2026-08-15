@@ -1,4 +1,5 @@
-import type { Material, Layer, Assembly, EnvelopeElement, EnvironmentalSettings, Room } from './types';
+import type { Material, Layer, Assembly, EnvelopeElement, EnvironmentalSettings, Room, Storey } from './types';
+import { calculateAdjustedNetArea, detectRoomAdjacencies } from './spatialEngine';
 
 /**
  * Calculates the thermal resistance of a single layer: R = d / lambda
@@ -64,8 +65,13 @@ export function calculateChildOpeningsArea(
  */
 export function calculateNetArea(
   element: EnvelopeElement,
-  elements: EnvelopeElement[] = []
+  elements: EnvelopeElement[] = [],
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
+  if (rooms.length > 0) {
+    return calculateAdjustedNetArea(element, elements, rooms, storeys);
+  }
   const childOpeningsArea = calculateChildOpeningsArea(element.id, elements);
   return element.area - childOpeningsArea;
 }
@@ -92,7 +98,8 @@ export function calculateTransmissionLoss(
   materials: Material[],
   settings: EnvironmentalSettings,
   allElements: EnvelopeElement[] = [],
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
   const uEffective = calculateEffectiveUValue(element, assemblies, materials);
   let indoorTemp = settings.t_int;
@@ -102,9 +109,28 @@ export function calculateTransmissionLoss(
       indoorTemp = linkedRoom.t_int;
     }
   }
+
+  // 1. External Net Transmission Loss
   const deltaT = indoorTemp - settings.t_e;
-  const netArea = calculateNetArea(element, allElements);
-  const loss = netArea * uEffective * deltaT * element.b_factor;
+  const netArea = calculateNetArea(element, allElements, rooms, storeys);
+  let loss = netArea * uEffective * deltaT * element.b_factor;
+
+  // 2. Internal Partition Contact Transmission Loss for unequal temperature adjacent rooms
+  if (element.room_id && rooms.length > 0) {
+    const contacts = detectRoomAdjacencies(rooms, storeys);
+    contacts.forEach((c) => {
+      if (c.room1Id === element.room_id || c.room2Id === element.room_id) {
+        if (!c.isEqualTemp && c.contactArea > 0) {
+          const isWall = element.tilt === 90 && (c.contactType === 'wall_x' || c.contactType === 'wall_z');
+          const isFloorCeiling = element.tilt === 0 && c.contactType === 'floor_ceiling';
+          if (isWall || isFloorCeiling) {
+            loss += c.contactArea * uEffective * Math.abs(c.deltaT);
+          }
+        }
+      }
+    });
+  }
+
   return loss > 0 ? loss : 0;
 }
 
@@ -139,11 +165,12 @@ export function calculateRoomTransmissionLoss(
   assemblies: Assembly[],
   materials: Material[],
   settings: EnvironmentalSettings,
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
   return elements
     .filter(e => e.room_id === roomId)
-    .reduce((sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms), 0);
+    .reduce((sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys), 0);
 }
 
 /**
@@ -155,9 +182,10 @@ export function calculateRoomTotalLoss(
   assemblies: Assembly[],
   materials: Material[],
   settings: EnvironmentalSettings,
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): { transmission: number; ventilation: number; total: number } {
-  const transmission = calculateRoomTransmissionLoss(room.id, elements, assemblies, materials, settings, rooms);
+  const transmission = calculateRoomTransmissionLoss(room.id, elements, assemblies, materials, settings, rooms, storeys);
   const ventilation = calculateRoomVentilationLoss(room, settings.t_e);
   return {
     transmission,
@@ -216,10 +244,11 @@ export function calculateTotalBuildingTransmissionLoss(
   assemblies: Assembly[],
   materials: Material[],
   settings: EnvironmentalSettings,
-  rooms: Room[] = []
+  rooms: Room[] = [],
+  storeys: Storey[] = []
 ): number {
   return elements.reduce(
-    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms),
+    (sum, el) => sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys),
     0
   );
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Material, Assembly, EnvelopeElement, EnvironmentalSettings, ProjectState, Layer, Storey, Room } from './types';
 import { BUILT_IN_MATERIALS } from './data/materials';
+import { generateRoomBoundarySurfaces } from './spatialEngine';
 
 export { BUILT_IN_MATERIALS };
 
@@ -43,7 +44,9 @@ const INITIAL_ROOMS: Room[] = [
     t_int: 20,
     air_exchange_rate: 0.5,
     width: 5,
-    length: 6
+    length: 6,
+    pos_x: 0,
+    pos_y: 0
   },
   {
     id: bathroomId,
@@ -54,7 +57,9 @@ const INITIAL_ROOMS: Room[] = [
     t_int: 24,
     air_exchange_rate: 1.5,
     width: 2.5,
-    length: 3.2
+    length: 3.2,
+    pos_x: 5,
+    pos_y: 0
   }
 ];
 
@@ -176,9 +181,11 @@ interface HeatLossState {
   environmental_settings: EnvironmentalSettings;
   storeys: Storey[];
   rooms: Room[];
+  magnetic_snap_distance: number;
 
   // Actions
   setLanguage: (lang: 'cs' | 'en') => void;
+  setMagneticSnapDistance: (dist: number) => void;
   addMaterial: (material: Material) => void;
   deleteMaterial: (id: string) => void;
 
@@ -216,6 +223,11 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
   storeys: INITIAL_STOREYS,
   rooms: INITIAL_ROOMS,
+  magnetic_snap_distance: 0.15,
+
+  setMagneticSnapDistance: (dist) => set(() => ({
+    magnetic_snap_distance: Math.min(0.5, Math.max(0.02, dist))
+  })),
 
   // Language management
   setLanguage: (language) => set(() => {
@@ -286,9 +298,16 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   })),
 
   // Envelope Elements
-  addElement: (element) => set((state) => ({
-    envelope_elements: [...state.envelope_elements, element]
-  })),
+  addElement: (element) => set((state) => {
+    const formatted: EnvelopeElement = {
+      ...element,
+      is_virtual: element.is_virtual ?? (!element.room_id && !element.parent_element_id),
+      source: element.source ?? (element.room_id ? 'volume' : 'manual')
+    };
+    return {
+      envelope_elements: [...state.envelope_elements, formatted]
+    };
+  }),
 
   updateElement: (id, updated) => set((state) => ({
     envelope_elements: state.envelope_elements.map((e) => {
@@ -296,6 +315,9 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       const newElem = { ...e, ...updated };
       if (updated.parent_element_id === '') newElem.parent_element_id = undefined;
       if (updated.room_id === '') newElem.room_id = undefined;
+      if (typeof newElem.opening_width === 'number' && typeof newElem.opening_height === 'number') {
+        newElem.area = Math.round(newElem.opening_width * newElem.opening_height * 100) / 100;
+      }
       return newElem;
     })
   })),
@@ -323,19 +345,62 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
     };
   }),
 
-  // Rooms
-  addRoom: (room) => set((state) => ({
-    rooms: [...state.rooms, room]
-  })),
+  // Rooms with automatic boundary surface generation and dynamic gross area synchronization
+  addRoom: (room) => set((state) => {
+    const defaultAssembly = state.assemblies[0]?.id || '';
+    const generatedSurfaces = generateRoomBoundarySurfaces(room, state.storeys, defaultAssembly);
+    return {
+      rooms: [...state.rooms, room],
+      envelope_elements: [...state.envelope_elements, ...generatedSurfaces]
+    };
+  }),
 
-  updateRoom: (id, updated) => set((state) => ({
-    rooms: state.rooms.map((r) => (r.id === id ? { ...r, ...updated } : r))
-  })),
+  updateRoom: (id, updated) => set((state) => {
+    const updatedRooms = state.rooms.map((r) => (r.id === id ? { ...r, ...updated } : r));
+    const targetRoom = updatedRooms.find((r) => r.id === id);
+
+    if (!targetRoom) return { rooms: updatedRooms };
+
+    const defaultAssembly = state.assemblies[0]?.id || '';
+    const freshSurfaces = generateRoomBoundarySurfaces(targetRoom, state.storeys, defaultAssembly);
+
+    // Sync gross areas of existing generated boundary elements
+    const updatedElements = state.envelope_elements.map((el) => {
+      if (el.room_id !== id) return el;
+      const matchingFresh = freshSurfaces.find((f) => f.id === el.id);
+      if (matchingFresh) {
+        return {
+          ...el,
+          area: matchingFresh.area,
+          name: el.name.startsWith(targetRoom.name.split(' – ')[0])
+            ? el.name
+            : `${targetRoom.name} – ${el.name.split(' – ')[1] || el.name}`
+        };
+      }
+      return el;
+    });
+
+    return {
+      rooms: updatedRooms,
+      envelope_elements: updatedElements
+    };
+  }),
 
   deleteRoom: (id) => set((state) => {
-    const updatedElements = state.envelope_elements.map((e) =>
-      e.room_id === id ? { ...e, room_id: undefined } : e
-    );
+    // Delete generated boundary elements of the deleted room
+    // Preserve child openings by clearing parent_element_id & room_id so they move safely to the unassigned elements pool
+    const updatedElements = state.envelope_elements
+      .filter((e) => e.room_id !== id)
+      .map((e) => {
+        const parentWasRoomSurface = state.envelope_elements.some(
+          (p) => p.id === e.parent_element_id && p.room_id === id
+        );
+        if (parentWasRoomSurface) {
+          return { ...e, parent_element_id: undefined, room_id: undefined };
+        }
+        return e;
+      });
+
     return {
       rooms: state.rooms.filter((r) => r.id !== id),
       envelope_elements: updatedElements

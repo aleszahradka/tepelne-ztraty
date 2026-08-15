@@ -35,6 +35,8 @@ export const RoomManager: React.FC = () => {
   const [newRoomHeight, setNewRoomHeight] = useState<number>(2.7);
   const [newRoomTInt, setNewRoomTInt] = useState<number>(20);
   const [newRoomAirExchange, setNewRoomAirExchange] = useState<number>(0.5);
+  const [newRoomPosX, setNewRoomPosX] = useState<number>(0);
+  const [newRoomPosY, setNewRoomPosY] = useState<number>(0);
 
   const handleWidthChange = (val: number | '') => {
     setNewRoomWidth(val);
@@ -80,7 +82,9 @@ export const RoomManager: React.FC = () => {
       area: Math.max(0.1, newRoomArea),
       height: Math.max(1, newRoomHeight),
       t_int: newRoomTInt,
-      air_exchange_rate: Math.max(0, newRoomAirExchange)
+      air_exchange_rate: Math.max(0, newRoomAirExchange),
+      pos_x: newRoomPosX,
+      pos_y: newRoomPosY
     };
 
     addRoom(newRoom);
@@ -216,7 +220,7 @@ export const RoomManager: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
               <div>
                 <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.width}</label>
                 <input
@@ -238,6 +242,28 @@ export const RoomManager: React.FC = () => {
                   placeholder="e.g. 4"
                   value={newRoomLength}
                   onChange={(e) => handleLengthChange(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.posX}</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  placeholder="0"
+                  value={newRoomPosX}
+                  onChange={(e) => setNewRoomPosX(parseFloat(e.target.value) || 0)}
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.posY}</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  placeholder="0"
+                  value={newRoomPosY}
+                  onChange={(e) => setNewRoomPosY(parseFloat(e.target.value) || 0)}
                   className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
                 />
               </div>
@@ -331,8 +357,8 @@ export const RoomManager: React.FC = () => {
                         onChange={(e) => updateRoom(room.id, { name: e.target.value })}
                         className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 font-semibold text-slate-800 text-sm px-1 py-0.5 w-full outline-none"
                       />
-                      {/* Geometric dimensions width x length */}
-                      <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400 font-mono">
+                      {/* Geometric dimensions width x length and offsets pos_x, pos_y */}
+                      <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400 font-mono flex-wrap">
                         <span>W:</span>
                         <input
                           type="number"
@@ -364,6 +390,30 @@ export const RoomManager: React.FC = () => {
                               updates.area = Math.round(l * room.width * 100) / 100;
                             }
                             updateRoom(room.id, updates);
+                          }}
+                          className="w-12 px-1 py-0.2 bg-white border border-slate-200 rounded text-center text-slate-700 font-semibold"
+                        />
+                        <span>m | X:</span>
+                        <input
+                          type="number"
+                          step="0.5"
+                          placeholder="0"
+                          value={room.pos_x ?? 0}
+                          onChange={(e) => {
+                            const px = parseFloat(e.target.value) || 0;
+                            updateRoom(room.id, { pos_x: px });
+                          }}
+                          className="w-12 px-1 py-0.2 bg-white border border-slate-200 rounded text-center text-slate-700 font-semibold"
+                        />
+                        <span>m, Y:</span>
+                        <input
+                          type="number"
+                          step="0.5"
+                          placeholder="0"
+                          value={room.pos_y ?? 0}
+                          onChange={(e) => {
+                            const py = parseFloat(e.target.value) || 0;
+                            updateRoom(room.id, { pos_y: py });
                           }}
                           className="w-12 px-1 py-0.2 bg-white border border-slate-200 rounded text-center text-slate-700 font-semibold"
                         />

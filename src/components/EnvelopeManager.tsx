@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useHeatLossStore, generateUUID } from '../store';
 import type { EnvelopeElement, AdjacentSpaceType } from '../types';
 import { calculateAssemblyUValue, calculateEffectiveUValue, calculateTransmissionLoss, calculateChildOpeningsArea, calculateNetArea, isNetAreaExceeded, calculateAbsoluteAzimuth, getAzimuthCardinalLabel } from '../mathEngine';
-import { ShieldAlert, Plus, Trash2, Copy, HelpCircle, CornerDownRight, AlertTriangle, Compass } from 'lucide-react';
+import { getRoomFaceContactArea, detectRoomAdjacencies } from '../spatialEngine';
+import { Plus, Trash2, Copy, HelpCircle, CornerDownRight, AlertTriangle, Compass, Layers, Home } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
 
 export const EnvelopeManager: React.FC = () => {
@@ -121,16 +122,21 @@ export const EnvelopeManager: React.FC = () => {
     }
   });
 
+  const storeys = useHeatLossStore((state) => state.storeys);
+  const roomContacts = detectRoomAdjacencies(rooms, storeys);
+
   return (
     <div className="bg-white rounded-xl shadow-md p-6 border border-slate-100 h-full">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="text-red-500 w-6 h-6" />
-          <h2 className="text-xl font-bold text-slate-800">{t.envelope.title}</h2>
+          <Layers className="text-indigo-600 w-6 h-6" />
+          <h2 className="text-xl font-bold text-slate-800">
+            {t.viewer3d?.roomEnvelopes || 'Obálky Místností / Room Envelopes'}
+          </h2>
         </div>
         <button
           onClick={() => setShowHelper(!showHelper)}
-          className="text-slate-400 hover:text-red-500 transition-colors"
+          className="text-slate-400 hover:text-indigo-600 transition-colors"
           title="Show physical space factors guide"
         >
           <HelpCircle className="w-5 h-5" />
@@ -418,8 +424,13 @@ export const EnvelopeManager: React.FC = () => {
                           type="text"
                           value={element.name}
                           onChange={(e) => updateElement(element.id, { name: e.target.value })}
-                          className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-red-500 font-semibold text-slate-800 text-sm px-1 py-0.5 w-full outline-none"
+                          className="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-red-500 font-semibold text-slate-800 text-sm px-1 py-0.5 outline-none"
                         />
+                        {(element.is_virtual || element.source === 'manual') && (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                            {t.viewer3d?.manualElement || 'Ruční prvek (pouze výpočet)'}
+                          </span>
+                        )}
                       </div>
 
                       {/* Inline parent & room selectors */}
@@ -531,7 +542,7 @@ export const EnvelopeManager: React.FC = () => {
                     </div>
                   </td>
 
-                  {/* Area Breakdown */}
+                  {/* Area Breakdown & Spatial Contact Badges */}
                   <td className="px-4 py-3.5 whitespace-nowrap">
                     <div className="flex flex-col gap-1 font-mono text-xs">
                       <div className="flex items-center gap-1">
@@ -544,26 +555,44 @@ export const EnvelopeManager: React.FC = () => {
                           className="w-16 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-center text-slate-700"
                         />
                         <span className="text-slate-400">m²</span>
-                        {hasChildren && (
-                          <span className="text-[10px] text-slate-400 font-normal">({t.envelope.grossArea})</span>
-                        )}
+                        <span className="text-[10px] text-slate-400 font-normal">({t.envelope.grossArea})</span>
                       </div>
 
-                      {/* Openings & Net Area Breakdown */}
-                      {hasChildren && (
-                        <div className="text-[11px] space-y-0.5 pt-0.5 border-t border-slate-100">
+                      {/* Contact Face Badge */}
+                      {(() => {
+                        if (!element.room_id) return null;
+                        const contactArea = getRoomFaceContactArea(element.room_id, element.relative_angle, element.tilt, rooms, storeys);
+                        if (contactArea <= 0) return null;
+
+                        const matchingContact = roomContacts.find((c) => c.room1Id === element.room_id || c.room2Id === element.room_id);
+                        const otherRoomId = matchingContact ? (matchingContact.room1Id === element.room_id ? matchingContact.room2Id : matchingContact.room1Id) : null;
+                        const otherRoom = rooms.find((r) => r.id === otherRoomId);
+
+                        return (
+                          <div className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <Home className="w-3 h-3 text-indigo-500 shrink-0" />
+                            <span>
+                              {t.viewer3d?.contactArea || 'Styková plocha'}: {otherRoom ? otherRoom.name.split(' ')[0] : ''} – {contactArea.toFixed(1)} m²
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Openings & Net External Area Breakdown */}
+                      <div className="text-[11px] space-y-0.5 pt-0.5 border-t border-slate-100">
+                        {hasChildren && (
                           <div className="text-slate-500 flex items-center justify-between gap-2">
                             <span>{t.envelope.openingsArea}:</span>
                             <span className="text-red-500 font-semibold">-{openingsArea.toFixed(1)} m²</span>
                           </div>
-                          <div className="text-slate-800 font-bold flex items-center justify-between gap-2">
-                            <span>{t.envelope.netArea}:</span>
-                            <span className={isExceeded ? 'text-amber-600 font-black' : 'text-slate-900'}>
-                              {netArea.toFixed(1)} m²
-                            </span>
-                          </div>
+                        )}
+                        <div className="text-slate-800 font-bold flex items-center justify-between gap-2">
+                          <span>{t.envelope.netArea}:</span>
+                          <span className={isExceeded ? 'text-amber-600 font-black' : 'text-slate-900'}>
+                            {netArea.toFixed(1)} m²
+                          </span>
                         </div>
-                      )}
+                      </div>
 
                       {/* Warning badge if net area < 0 */}
                       {isExceeded && (
