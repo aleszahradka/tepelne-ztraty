@@ -21,47 +21,9 @@ const DEFAULT_ENVIRONMENTAL_SETTINGS: EnvironmentalSettings = {
   building_orientation: 0
 };
 
-// Initial storeys and rooms
-const defaultStoreyId = 'storey-1np';
-const INITIAL_STOREYS: Storey[] = [
-  {
-    id: defaultStoreyId,
-    name: '1.NP / Ground Floor',
-    level_z: 0
-  }
-];
-
-const livingRoomId = 'room-living-room';
-const bathroomId = 'room-bathroom';
-
-const INITIAL_ROOMS: Room[] = [
-  {
-    id: livingRoomId,
-    name: '1.01 Obývací pokoj / Living Room',
-    storey_id: defaultStoreyId,
-    area: 30,
-    height: 2.7,
-    t_int: 20,
-    air_exchange_rate: 0.5,
-    width: 5,
-    length: 6,
-    pos_x: 0,
-    pos_y: 0
-  },
-  {
-    id: bathroomId,
-    name: '1.02 Koupelna / Bathroom',
-    storey_id: defaultStoreyId,
-    area: 8,
-    height: 2.7,
-    t_int: 24,
-    air_exchange_rate: 1.5,
-    width: 2.5,
-    length: 3.2,
-    pos_x: 5,
-    pos_y: 0
-  }
-];
+// Initial storeys and rooms (Clean Slate: 0 rooms, 0 surfaces, 0 openings)
+const INITIAL_STOREYS: Storey[] = [];
+const INITIAL_ROOMS: Room[] = [];
 
 // Initial demo assemblies
 const demoAssemblyWallId = 'asm-wall-insulated';
@@ -102,70 +64,8 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
   }
 ];
 
-const northWallId = generateUUID();
-
-// Initial demo envelope elements
-const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
-  {
-    id: northWallId,
-    name: "North Wall (External) / Severní stěna",
-    area: 45.0,
-    assembly_id: demoAssemblyWallId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.05,
-    room_id: livingRoomId,
-    relative_angle: 0,
-    tilt: 90
-  },
-  {
-    id: generateUUID(),
-    name: "South Wall (External) / Jižní stěna",
-    area: 45.0,
-    assembly_id: demoAssemblyWallId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.05,
-    room_id: livingRoomId,
-    relative_angle: 180,
-    tilt: 90
-  },
-  {
-    id: generateUUID(),
-    name: "Main Roof / Hlavní střecha",
-    area: 60.0,
-    assembly_id: demoAssemblyRoofId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.05,
-    relative_angle: 0,
-    tilt: 0
-  },
-  {
-    id: generateUUID(),
-    name: "Living Room Window / Obývací okno",
-    area: 6.0,
-    assembly_id: demoAssemblyWindowId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.00,
-    parent_element_id: northWallId,
-    room_id: livingRoomId,
-    relative_angle: 0,
-    tilt: 90
-  },
-  {
-    id: generateUUID(),
-    name: "Basement Floor Connection / Podlaha suterénu",
-    area: 60.0,
-    assembly_id: demoAssemblyWallId, // placeholder
-    adjacent_space_type: "ground",
-    b_factor: 0.45,
-    delta_u_tb: 0.02,
-    relative_angle: 0,
-    tilt: 0
-  }
-];
+// Initial envelope elements (Clean Slate Start)
+const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [];
 
 // Get initial language preference from localStorage, default to 'cs' (Czech)
 const getInitialLanguage = (): 'cs' | 'en' => {
@@ -356,6 +256,7 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   }),
 
   updateRoom: (id, updated) => set((state) => {
+    const previousRoom = state.rooms.find((r) => r.id === id);
     const updatedRooms = state.rooms.map((r) => (r.id === id ? { ...r, ...updated } : r));
     const targetRoom = updatedRooms.find((r) => r.id === id);
 
@@ -364,21 +265,54 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
     const defaultAssembly = state.assemblies[0]?.id || '';
     const freshSurfaces = generateRoomBoundarySurfaces(targetRoom, state.storeys, defaultAssembly);
 
-    // Sync gross areas of existing generated boundary elements
-    const updatedElements = state.envelope_elements.map((el) => {
-      if (el.room_id !== id) return el;
-      const matchingFresh = freshSurfaces.find((f) => f.id === el.id);
-      if (matchingFresh) {
+    const isShapeTypeChanged = previousRoom && previousRoom.shape_type !== targetRoom.shape_type;
+
+    let updatedElements: EnvelopeElement[] = [];
+
+    if (isShapeTypeChanged) {
+      // Shape changed (Box <-> Prism): Remove old boundary surfaces and insert fresh ones
+      const nonRoomElements = state.envelope_elements.filter((el) => el.room_id !== id);
+      const roomChildOpenings = state.envelope_elements.filter(
+        (el) => el.room_id === id && el.parent_element_id !== undefined
+      );
+
+      // Re-map child openings to new fresh parent surfaces
+      const remappedOpenings = roomChildOpenings.map((child) => {
+        const matchingParent = freshSurfaces.find(
+          (p) => p.parent_face === child.parent_face || p.relative_angle === child.relative_angle
+        ) || freshSurfaces[0];
         return {
-          ...el,
-          area: matchingFresh.area,
-          name: el.name.startsWith(targetRoom.name.split(' – ')[0])
-            ? el.name
-            : `${targetRoom.name} – ${el.name.split(' – ')[1] || el.name}`
+          ...child,
+          parent_element_id: matchingParent?.id,
+          parent_face: matchingParent?.parent_face
         };
+      });
+
+      updatedElements = [...nonRoomElements, ...freshSurfaces, ...remappedOpenings];
+    } else {
+      // Shape unchanged: Sync gross areas & names of existing generated boundary elements
+      const existingRoomSurfaces = state.envelope_elements.filter((el) => el.room_id === id && !el.parent_element_id);
+      const hasGeneratedSurfaces = existingRoomSurfaces.length > 0;
+
+      if (!hasGeneratedSurfaces) {
+        updatedElements = [...state.envelope_elements, ...freshSurfaces];
+      } else {
+        updatedElements = state.envelope_elements.map((el) => {
+          if (el.room_id !== id) return el;
+          const matchingFresh = freshSurfaces.find((f) => f.id === el.id);
+          if (matchingFresh) {
+            return {
+              ...el,
+              area: matchingFresh.area,
+              name: el.name.startsWith(targetRoom.name.split(' – ')[0])
+                ? el.name
+                : `${targetRoom.name} – ${el.name.split(' – ')[1] || el.name}`
+            };
+          }
+          return el;
+        });
       }
-      return el;
-    });
+    }
 
     return {
       rooms: updatedRooms,
@@ -457,9 +391,9 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   resetProject: () => set(() => ({
     materials: BUILT_IN_MATERIALS,
     assemblies: INITIAL_ASSEMBLIES,
-    envelope_elements: INITIAL_ENVELOPE_ELEMENTS,
+    envelope_elements: [],
     environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
-    storeys: INITIAL_STOREYS,
-    rooms: INITIAL_ROOMS
+    storeys: [],
+    rooms: []
   }))
 }));

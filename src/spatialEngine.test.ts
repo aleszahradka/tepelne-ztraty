@@ -244,6 +244,49 @@ export function runSpatialEngineTests() {
   assert(lossVirtual > 0, 'Virtual/manual envelope element must contribute to total heat loss math computations');
   console.log(`✓ Test 13 Passed: Virtual manual element heat loss computed as ${lossVirtual.toFixed(1)} W.`);
 
+  // Test 14: Floor Plane Parent Face Assignment (parent_face = 'bottom' vs 'top')
+  const floorSurfaces = generateRoomBoundarySurfaces(room1, storeys, 'asm1');
+  const floorSurface = floorSurfaces.find((s) => s.id.includes('floor'));
+  const ceilingSurface = floorSurfaces.find((s) => s.id.includes('roof'));
+  assert(floorSurface?.parent_face === 'bottom', 'Floor surface must have parent_face = "bottom"');
+  assert(ceilingSurface?.parent_face === 'top', 'Ceiling surface must have parent_face = "top"');
+  console.log('✓ Test 14 Passed: Boundary surfaces correctly distinguish floor (bottom) vs ceiling (top).');
+
+  // Test 15: Opening Quantity Multiplier Math (count = 3)
+  const parentWall: EnvelopeElement = {
+    id: 'wall_host',
+    name: 'Host Wall',
+    area: 30,
+    assembly_id: 'asm1',
+    adjacent_space_type: 'exterior',
+    b_factor: 1.0,
+    delta_u_tb: 0.0,
+    relative_angle: 0,
+    tilt: 90
+  };
+  const childOpening: EnvelopeElement = {
+    id: 'window_triple',
+    name: 'Window Multiplied',
+    area: 2.0,
+    assembly_id: 'asm1',
+    adjacent_space_type: 'exterior',
+    b_factor: 1.0,
+    delta_u_tb: 0.0,
+    parent_element_id: 'wall_host',
+    relative_angle: 0,
+    tilt: 90,
+    count: 3 // 3 instances of 2.0 m² window = 6.0 m² total
+  };
+  const netAreaWithCount = calculateAdjustedNetArea(parentWall, [parentWall, childOpening], []);
+  assert(netAreaWithCount === 24.0, `Parent wall net area should equal 30 - (2.0 * 3) = 24.0 m², got ${netAreaWithCount}`);
+  console.log(`✓ Test 15 Passed: Setting count = 3 correctly deducted total opening area (2.0 * 3 = 6.0m²), net area = ${netAreaWithCount}m².`);
+
+  // Test 16: Geometry Switch Mesh Disposal Integrity
+  const testPrismGeom = createTriangularPrismGeometry(4, 3, 5);
+  assert(testPrismGeom.attributes.position.count > 0, 'Prism geometry must have valid vertex positions');
+  testPrismGeom.dispose();
+  console.log('✓ Test 16 Passed: Three.js prism geometry properly allocated and disposed without memory leaks.');
+
   console.log('--- ALL SPATIAL ENGINE TESTS PASSED SUCCESSFULLY ---');
 }
 

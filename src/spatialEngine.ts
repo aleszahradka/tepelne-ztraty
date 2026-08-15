@@ -390,7 +390,7 @@ export function calculateAdjustedNetArea(
 ): number {
   const childArea = allElements
     .filter((e) => e.parent_element_id === element.id)
-    .reduce((sum, child) => sum + child.area, 0);
+    .reduce((sum, child) => sum + child.area * Math.max(1, child.count || 1), 0);
 
   let contactArea = 0;
 
@@ -404,7 +404,8 @@ export function calculateAdjustedNetArea(
     );
   }
 
-  const netArea = element.area - childArea - contactArea;
+  const grossTotalArea = element.area * Math.max(1, element.count || 1);
+  const netArea = grossTotalArea - childArea - contactArea;
   return Math.max(0, netArea);
 }
 
@@ -478,7 +479,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 270,
-        tilt: pitchAngle
+        tilt: pitchAngle,
+        parent_face: 'top'
       },
       {
         id: genId('roof-right'),
@@ -490,7 +492,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 90,
-        tilt: pitchAngle
+        tilt: pitchAngle,
+        parent_face: 'top'
       },
       {
         id: genId('gable-front'),
@@ -502,7 +505,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 0,
-        tilt: 90
+        tilt: 90,
+        parent_face: 'front'
       },
       {
         id: genId('gable-back'),
@@ -514,7 +518,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 180,
-        tilt: 90
+        tilt: 90,
+        parent_face: 'back'
       },
       {
         id: genId('base-floor'),
@@ -526,7 +531,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.02,
         room_id: room.id,
         relative_angle: 0,
-        tilt: 0
+        tilt: 0,
+        parent_face: 'bottom'
       }
     ];
   }
@@ -547,7 +553,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 0,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'front'
     },
     {
       id: genId('wall-right'),
@@ -559,7 +566,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 90,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'right'
     },
     {
       id: genId('wall-back'),
@@ -571,7 +579,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 180,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'back'
     },
     {
       id: genId('wall-left'),
@@ -583,7 +592,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 270,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'left'
     },
     {
       id: genId('roof-ceiling'),
@@ -595,7 +605,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 0,
-      tilt: 0
+      tilt: 0,
+      parent_face: 'top'
     },
     {
       id: genId('floor-ground'),
@@ -607,7 +618,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.02,
       room_id: room.id,
       relative_angle: 0,
-      tilt: 0
+      tilt: 0,
+      parent_face: 'bottom'
     }
   ];
 }

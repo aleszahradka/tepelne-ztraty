@@ -258,7 +258,11 @@ export const cs = {
     highlightOpening: "Zvýraznit otvor",
     roomName: "Název místnosti",
     volumetricCollision: "3D Objemová kolize",
-    addOpeningToggle: "Dodatečný otvor"
+    addOpeningToggle: "Dodatečný otvor",
+    openingQuantity: "Počet otvorů",
+    deleteOpening: "Smazat otvor",
+    selectedFace: "Vybraná plocha",
+    emptyProject: "Bez objektů (Čistý projekt)"
   }
 };
 export type Translations = typeof cs;

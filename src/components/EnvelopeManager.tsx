@@ -555,7 +555,20 @@ export const EnvelopeManager: React.FC = () => {
                           className="w-16 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-center text-slate-700"
                         />
                         <span className="text-slate-400">m²</span>
-                        <span className="text-[10px] text-slate-400 font-normal">({t.envelope.grossArea})</span>
+                        <div className="flex items-center gap-0.5 ml-1 text-amber-700 font-bold bg-amber-50 px-1 py-0.5 rounded border border-amber-200" title={t.viewer3d?.openingQuantity || 'Počet / Quantity'}>
+                          <span className="text-[10px]">×</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={element.count || 1}
+                            onChange={(e) => updateElement(element.id, { count: Math.max(1, parseInt(e.target.value) || 1) })}
+                            className="w-10 px-0.5 py-0.5 bg-white border border-amber-300 rounded text-center text-xs font-bold text-amber-800"
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          ({(element.count || 1) > 1 ? `${(element.area * (element.count || 1)).toFixed(1)} m²` : t.envelope.grossArea})
+                        </span>
                       </div>
 
                       {/* Contact Face Badge */}

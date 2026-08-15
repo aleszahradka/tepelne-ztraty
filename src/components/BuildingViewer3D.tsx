@@ -90,6 +90,7 @@ interface RoomMeshProps {
   wireframe: boolean;
   selectedRoomId: string | null;
   selectedElementId: string | null;
+  activeFaceIndex: number | null;
   transformMode: 'translate' | 'scale' | 'view';
   gridSnap: boolean;
   snapStep: number;
@@ -114,6 +115,7 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
   wireframe,
   selectedRoomId,
   selectedElementId,
+  activeFaceIndex,
   transformMode,
   gridSnap,
   snapStep,
@@ -128,6 +130,8 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
   updateRoom
 }) => {
   const groupRef = useRef<THREE.Group>(null!);
+  const [hoveredFaceIndex, setHoveredFaceIndex] = useState<number | null>(null);
+
   const width = room.width || (room.area ? Math.sqrt(room.area) : 4);
   const length = room.length || (room.area ? Math.sqrt(room.area) : 4);
   const height = room.height || 2.7;
@@ -146,30 +150,29 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     return elements.filter((e) => e.room_id === room.id && !e.is_virtual && e.source !== 'manual');
   }, [elements, room.id]);
 
-  // Face U-values mapping
+  // Face U-values mapping matching Three.js BoxGeometry face material indices:
+  // 0: Right (+X), 1: Left (-X), 2: Top (+Y), 3: Bottom (-Y), 4: Front (+Z), 5: Back (-Z)
   const faceUValues = useMemo(() => {
     const uVals = [0, 0, 0, 0, 0, 0];
     roomElements.forEach((el) => {
       const effU = calculateEffectiveUValue(el, assemblies, materials);
-      if (el.tilt === 0) {
-        uVals[4] = effU; // Top / Roof
-      } else {
-        const normAngle = ((el.relative_angle % 360) + 360) % 360;
-        if (normAngle >= 315 || normAngle < 45) uVals[0] = effU; // Front (+Z)
-        else if (normAngle >= 45 && normAngle < 135) uVals[1] = effU; // Right (+X)
-        else if (normAngle >= 135 && normAngle < 225) uVals[2] = effU; // Back (-Z)
-        else if (normAngle >= 225 && normAngle < 315) uVals[3] = effU; // Left (-X)
-      }
+      if (el.parent_face === 'right' || (el.tilt === 90 && el.relative_angle === 90)) uVals[0] = effU;
+      else if (el.parent_face === 'left' || (el.tilt === 90 && el.relative_angle === 270)) uVals[1] = effU;
+      else if (el.parent_face === 'top' || (el.tilt === 0 && el.name.toLowerCase().includes('strop') || el.name.toLowerCase().includes('střecha'))) uVals[2] = effU;
+      else if (el.parent_face === 'bottom' || (el.tilt === 0 && el.name.toLowerCase().includes('podlaha'))) uVals[3] = effU;
+      else if (el.parent_face === 'front' || (el.tilt === 90 && el.relative_angle === 0)) uVals[4] = effU;
+      else if (el.parent_face === 'back' || (el.tilt === 90 && el.relative_angle === 180)) uVals[5] = effU;
     });
     return uVals;
   }, [roomElements, assemblies, materials]);
 
-  // Openings
+  // Child Openings with explicit face index mapping
   const childOpenings = useMemo(() => {
     const openings: {
       id: string;
       name: string;
       area: number;
+      count: number;
       faceIndex: number;
       uValue: number;
       element: EnvelopeElement;
@@ -178,20 +181,45 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     roomElements.forEach((parent) => {
       const children = elements.filter((child) => child.parent_element_id === parent.id);
       children.forEach((child) => {
-        let faceIndex = 0;
-        const normAngle = ((parent.relative_angle % 360) + 360) % 360;
-        if (parent.tilt === 0) {
-          faceIndex = 4;
+        let faceIndex = 4; // default Front
+
+        if (child.parent_face) {
+          switch (child.parent_face) {
+            case 'right': faceIndex = 0; break;
+            case 'left': faceIndex = 1; break;
+            case 'top': faceIndex = 2; break;
+            case 'bottom': faceIndex = 3; break;
+            case 'front': faceIndex = 4; break;
+            case 'back': faceIndex = 5; break;
+          }
+        } else if (parent.parent_face) {
+          switch (parent.parent_face) {
+            case 'right': faceIndex = 0; break;
+            case 'left': faceIndex = 1; break;
+            case 'top': faceIndex = 2; break;
+            case 'bottom': faceIndex = 3; break;
+            case 'front': faceIndex = 4; break;
+            case 'back': faceIndex = 5; break;
+          }
+        } else if (parent.tilt === 0) {
+          if (parent.name.toLowerCase().includes('podlaha') || parent.id.includes('floor')) {
+            faceIndex = 3; // Bottom / Floor
+          } else {
+            faceIndex = 2; // Top / Ceiling
+          }
         } else {
-          if (normAngle >= 315 || normAngle < 45) faceIndex = 0;
-          else if (normAngle >= 45 && normAngle < 135) faceIndex = 1;
-          else if (normAngle >= 135 && normAngle < 225) faceIndex = 2;
-          else if (normAngle >= 225 && normAngle < 315) faceIndex = 3;
+          const normAngle = ((parent.relative_angle % 360) + 360) % 360;
+          if (normAngle >= 315 || normAngle < 45) faceIndex = 4; // Front (+Z)
+          else if (normAngle >= 45 && normAngle < 135) faceIndex = 0; // Right (+X)
+          else if (normAngle >= 135 && normAngle < 225) faceIndex = 5; // Back (-Z)
+          else if (normAngle >= 225 && normAngle < 315) faceIndex = 1; // Left (-X)
         }
+
         openings.push({
           id: child.id,
           name: child.name,
           area: child.area,
+          count: Math.max(1, child.count || 1),
           faceIndex,
           uValue: calculateEffectiveUValue(child, assemblies, materials),
           element: child
@@ -215,14 +243,28 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
       ];
     }
     return [
-      { color: getThermalColor(faceUValues[1]), opacity: 0.85 }, // Right
-      { color: getThermalColor(faceUValues[3]), opacity: 0.85 }, // Left
-      { color: getThermalColor(faceUValues[4]), opacity: 0.85 }, // Top
-      { color: '#64748b', opacity: 0.5 },                        // Bottom
-      { color: getThermalColor(faceUValues[0]), opacity: 0.85 }, // Front
-      { color: getThermalColor(faceUValues[2]), opacity: 0.85 }  // Back
+      { color: getThermalColor(faceUValues[0]), opacity: 0.85 }, // Right (+X)
+      { color: getThermalColor(faceUValues[1]), opacity: 0.85 }, // Left (-X)
+      { color: getThermalColor(faceUValues[2]), opacity: 0.85 }, // Top (+Y)
+      { color: getThermalColor(faceUValues[3]), opacity: 0.85 }, // Bottom (-Y)
+      { color: getThermalColor(faceUValues[4]), opacity: 0.85 }, // Front (+Z)
+      { color: getThermalColor(faceUValues[5]), opacity: 0.85 }  // Back (-Z)
     ];
   }, [heatmapOverlay, faceUValues, isSelected]);
+
+  const highlightFace = activeFaceIndex !== null ? activeFaceIndex : (isSelected ? hoveredFaceIndex : null);
+
+  const getFaceOverlayProps = (fIdx: number): { pos: [number, number, number]; rot: [number, number, number]; size: [number, number] } => {
+    switch (fIdx) {
+      case 0: return { pos: [width / 2 + 0.02, 0, 0], rot: [0, Math.PI / 2, 0], size: [length, height] };
+      case 1: return { pos: [-width / 2 - 0.02, 0, 0], rot: [0, -Math.PI / 2, 0], size: [length, height] };
+      case 2: return { pos: [0, height / 2 + 0.02, 0], rot: [-Math.PI / 2, 0, 0], size: [width, length] };
+      case 3: return { pos: [0, -height / 2 - 0.02, 0], rot: [Math.PI / 2, 0, 0], size: [width, length] };
+      case 4: return { pos: [0, 0, length / 2 + 0.02], rot: [0, 0, 0], size: [width, height] };
+      case 5: return { pos: [0, 0, -length / 2 - 0.02], rot: [0, Math.PI, 0], size: [width, height] };
+      default: return { pos: [0, 0, 0], rot: [0, 0, 0], size: [1, 1] };
+    }
+  };
 
   // Handle Transform Gizmo Change with Magnetic Snapping & Collision Constraints
   const handleTransformChange = () => {
@@ -319,12 +361,22 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
     return null;
   }, [shapeType, width, height, length]);
 
+  // Dispose prism geometry on shape changes or unmount
+  React.useEffect(() => {
+    return () => {
+      if (prismGeometry) {
+        prismGeometry.dispose();
+      }
+    };
+  }, [prismGeometry]);
+
   return (
     <>
       <group ref={groupRef} position={[centerX, centerY, centerZ]}>
         {/* Box Geometry or Triangular Roof Prism Geometry */}
         {shapeType === 'triangular_prism' && prismGeometry ? (
           <mesh
+            key={`prism-${room.id}-${width}-${height}-${length}`}
             geometry={prismGeometry}
             onClick={(e) => {
               e.stopPropagation();
@@ -340,6 +392,14 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           </mesh>
         ) : (
           <mesh
+            key={`box-${room.id}-${width}-${height}-${length}`}
+            onPointerMove={(e) => {
+              if (e.faceIndex != null) {
+                const faceMaterialIndex = Math.floor(e.faceIndex / 2);
+                setHoveredFaceIndex(faceMaterialIndex);
+              }
+            }}
+            onPointerOut={() => setHoveredFaceIndex(null)}
             onClick={(e) => {
               e.stopPropagation();
               onSelectRoom(room.id);
@@ -365,6 +425,28 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           </mesh>
         )}
 
+        {/* Target Face Selection Highlighting Overlay */}
+        {highlightFace !== null && shapeType === 'box' && (
+          <group position={getFaceOverlayProps(highlightFace).pos} rotation={getFaceOverlayProps(highlightFace).rot}>
+            <mesh>
+              <planeGeometry args={getFaceOverlayProps(highlightFace).size} />
+              <meshStandardMaterial
+                color="#00f0ff"
+                transparent
+                opacity={0.45}
+                side={THREE.DoubleSide}
+                roughness={0.1}
+                emissive="#00f0ff"
+                emissiveIntensity={0.6}
+              />
+            </mesh>
+            <lineSegments>
+              <edgesGeometry args={[new THREE.PlaneGeometry(...getFaceOverlayProps(highlightFace).size)]} />
+              <lineBasicMaterial color="#00f0ff" linewidth={3} />
+            </lineSegments>
+          </group>
+        )}
+
         {/* Wireframe Outline */}
         <lineSegments>
           <edgesGeometry args={[new THREE.BoxGeometry(width, height, length)]} />
@@ -382,27 +464,52 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
           {room.name}
         </Text>
 
-        {/* Openings */}
+        {/* Child Openings */}
         {childOpenings.map((opening) => {
           const winW = opening.element.opening_width || Math.min(1.5, Math.sqrt(opening.area));
           const winH = opening.element.opening_height || (opening.area / winW);
+          const count = opening.count;
 
           const offX = opening.element.offset_x || 0;
           const offY = opening.element.offset_y || 0;
 
-          let openPos: [number, number, number] = [offX, offY, 0];
-          let openRot: [number, number, number] = [0, 0, 0];
+          let basePos: [number, number, number] = [0, 0, 0];
+          let baseRot: [number, number, number] = [0, 0, 0];
+          let shiftAxis: 'x' | 'z' = 'x';
 
-          if (opening.faceIndex === 0) openPos = [offX, offY, length / 2 + 0.02];
-          else if (opening.faceIndex === 1) {
-            openPos = [width / 2 + 0.02, offY, offX];
-            openRot = [0, Math.PI / 2, 0];
-          } else if (opening.faceIndex === 2) {
-            openPos = [offX, offY, -length / 2 - 0.02];
-            openRot = [0, Math.PI, 0];
-          } else if (opening.faceIndex === 3) {
-            openPos = [-width / 2 - 0.02, offY, offX];
-            openRot = [0, -Math.PI / 2, 0];
+          // Explicit face positioning mapping:
+          // 0: Right (+X), 1: Left (-X), 2: Top (+Y), 3: Bottom (-Y), 4: Front (+Z), 5: Back (-Z)
+          switch (opening.faceIndex) {
+            case 0: // Right (+X)
+              basePos = [width / 2 + 0.015, offY, offX];
+              baseRot = [0, Math.PI / 2, 0];
+              shiftAxis = 'z';
+              break;
+            case 1: // Left (-X)
+              basePos = [-width / 2 - 0.015, offY, offX];
+              baseRot = [0, -Math.PI / 2, 0];
+              shiftAxis = 'z';
+              break;
+            case 2: // Top / Ceiling (+Y)
+              basePos = [offX, height / 2 + 0.015, offY];
+              baseRot = [-Math.PI / 2, 0, 0];
+              shiftAxis = 'x';
+              break;
+            case 3: // Bottom / Floor (-Y)
+              basePos = [offX, -height / 2 - 0.015, offY];
+              baseRot = [Math.PI / 2, 0, 0];
+              shiftAxis = 'x';
+              break;
+            case 4: // Front (+Z)
+              basePos = [offX, offY, length / 2 + 0.015];
+              baseRot = [0, 0, 0];
+              shiftAxis = 'x';
+              break;
+            case 5: // Back (-Z)
+              basePos = [offX, offY, -length / 2 - 0.015];
+              baseRot = [0, Math.PI, 0];
+              shiftAxis = 'x';
+              break;
           }
 
           const isOpeningSelected = selectedElementId === opening.id;
@@ -412,32 +519,63 @@ const RoomMesh: React.FC<RoomMeshProps> = ({
             ? getThermalColor(opening.uValue, true)
             : '#0284c7';
 
-          return (
-            <group key={opening.id} position={openPos} rotation={openRot}>
-              <mesh
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectElement(opening.id);
-                }}
-              >
-                <planeGeometry args={[winW, winH]} />
-                <meshStandardMaterial
-                  color={openingColor}
-                  emissive={isOpeningSelected ? '#fbbf24' : '#000000'}
-                  emissiveIntensity={isOpeningSelected ? 0.6 : 0}
-                  transparent
-                  opacity={0.85}
-                  roughness={0.1}
-                  metalness={0.8}
-                />
-              </mesh>
+          // Side-by-side positioning for count > 1
+          const spacing = winW + 0.15;
+          const instances = Array.from({ length: count }, (_, i) => {
+            const shiftOffset = (i - (count - 1) / 2) * spacing;
+            const instPos: [number, number, number] = [
+              basePos[0] + (shiftAxis === 'x' ? shiftOffset : 0),
+              basePos[1],
+              basePos[2] + (shiftAxis === 'z' ? shiftOffset : 0)
+            ];
+            return { id: `${opening.id}-inst-${i}`, pos: instPos };
+          });
 
-              {/* Highlight selection wireframe outline for selected opening */}
-              {isOpeningSelected && (
-                <lineSegments>
-                  <edgesGeometry args={[new THREE.PlaneGeometry(winW, winH)]} />
-                  <lineBasicMaterial color="#f59e0b" linewidth={3} />
-                </lineSegments>
+          return (
+            <group key={opening.id}>
+              {instances.map((inst) => (
+                <group key={inst.id} position={inst.pos} rotation={baseRot}>
+                  <mesh
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectElement(opening.id);
+                    }}
+                  >
+                    <planeGeometry args={[winW, winH]} />
+                    <meshStandardMaterial
+                      color={openingColor}
+                      emissive={isOpeningSelected ? '#fbbf24' : '#000000'}
+                      emissiveIntensity={isOpeningSelected ? 0.6 : 0}
+                      transparent
+                      opacity={0.85}
+                      roughness={0.1}
+                      metalness={0.8}
+                    />
+                  </mesh>
+
+                  {/* Highlight selection wireframe outline */}
+                  {isOpeningSelected && (
+                    <lineSegments>
+                      <edgesGeometry args={[new THREE.PlaneGeometry(winW, winH)]} />
+                      <lineBasicMaterial color="#f59e0b" linewidth={3} />
+                    </lineSegments>
+                  )}
+                </group>
+              ))}
+
+              {/* Quantity Count Badge Text Overlay for count > 1 */}
+              {count > 1 && (
+                <group position={basePos} rotation={baseRot}>
+                  <Text
+                    position={[0, winH / 2 + 0.25, 0.02]}
+                    fontSize={0.35}
+                    color="#f59e0b"
+                    anchorX="center"
+                    anchorY="bottom"
+                  >
+                    {`${count}×`}
+                  </Text>
+                </group>
               )}
             </group>
           );
@@ -600,6 +738,8 @@ export const BuildingViewer3D: React.FC = () => {
     setSelectedRoomId(null);
   };
 
+  const deleteElement = useHeatLossStore((state) => state.deleteElement);
+
   const handleAddOpeningToSurface = (type: 'window' | 'door') => {
     if (!surfaceContextMenu) return;
     const { roomId, faceIndex } = surfaceContextMenu;
@@ -609,15 +749,22 @@ export const BuildingViewer3D: React.FC = () => {
 
     let relativeAngle = 0;
     let tilt = 90;
-    if (faceIndex === 0) relativeAngle = 90;
-    else if (faceIndex === 1) relativeAngle = 270;
-    else if (faceIndex === 2) tilt = 0;
-    else if (faceIndex === 3) tilt = 0;
-    else if (faceIndex === 4) relativeAngle = 0;
-    else if (faceIndex === 5) relativeAngle = 180;
+    let targetParentFace: 'front' | 'right' | 'back' | 'left' | 'top' | 'bottom' = 'front';
 
-    const parentWall = elements.find(
-      (e) => e.room_id === roomId && e.relative_angle === relativeAngle && e.tilt === tilt
+    if (faceIndex === 0) { relativeAngle = 90; tilt = 90; targetParentFace = 'right'; }
+    else if (faceIndex === 1) { relativeAngle = 270; tilt = 90; targetParentFace = 'left'; }
+    else if (faceIndex === 2) { relativeAngle = 0; tilt = 0; targetParentFace = 'top'; }
+    else if (faceIndex === 3) { relativeAngle = 0; tilt = 0; targetParentFace = 'bottom'; }
+    else if (faceIndex === 4) { relativeAngle = 0; tilt = 90; targetParentFace = 'front'; }
+    else if (faceIndex === 5) { relativeAngle = 180; tilt = 90; targetParentFace = 'back'; }
+
+    const parentWall = elements.find((e) =>
+      e.room_id === roomId && (
+        (e.parent_face && e.parent_face === targetParentFace) ||
+        (targetParentFace === 'top' && e.tilt === 0 && (e.id.includes('roof') || e.name.toLowerCase().includes('strop') || e.name.toLowerCase().includes('střecha'))) ||
+        (targetParentFace === 'bottom' && e.tilt === 0 && (e.id.includes('floor') || e.name.toLowerCase().includes('podlaha'))) ||
+        (e.relative_angle === relativeAngle && e.tilt === tilt)
+      )
     );
 
     const winW = type === 'window' ? 1.5 : 0.9;
@@ -626,7 +773,7 @@ export const BuildingViewer3D: React.FC = () => {
     const newOpening: EnvelopeElement = {
       id: generateUUID(),
       name: type === 'window' ? 'Window / Okno' : 'Door / Dveře',
-      area: winW * winH,
+      area: Math.round(winW * winH * 100) / 100,
       assembly_id: assembly.id,
       adjacent_space_type: 'exterior',
       b_factor: 1.0,
@@ -638,7 +785,9 @@ export const BuildingViewer3D: React.FC = () => {
       opening_width: winW,
       opening_height: winH,
       offset_x: 0,
-      offset_y: 0
+      offset_y: 0,
+      count: 1,
+      parent_face: targetParentFace
     };
 
     addElement(newOpening);
@@ -846,7 +995,7 @@ export const BuildingViewer3D: React.FC = () => {
 
           <ContactPartitionMeshes contacts={roomContacts} />
 
-          {storeys.map((storey) => {
+          {storeys.length > 0 && storeys.map((storey) => {
             const storeyRooms = rooms.filter((r) => r.storey_id === storey.id);
             return storeyRooms.map((room) => (
               <RoomMesh
@@ -860,6 +1009,7 @@ export const BuildingViewer3D: React.FC = () => {
                 wireframe={wireframe}
                 selectedRoomId={selectedRoomId}
                 selectedElementId={selectedElementId}
+                activeFaceIndex={surfaceContextMenu?.roomId === room.id ? surfaceContextMenu.faceIndex : null}
                 transformMode={transformMode}
                 gridSnap={gridSnap}
                 snapStep={snapStep}
@@ -883,7 +1033,66 @@ export const BuildingViewer3D: React.FC = () => {
               />
             ));
           })}
+
+          {/* Unassigned rooms fallback */}
+          {rooms.filter((r) => !r.storey_id || !storeys.some((s) => s.id === r.storey_id)).map((room) => (
+            <RoomMesh
+              key={room.id}
+              room={room}
+              levelZ={0}
+              elements={elements}
+              assemblies={assemblies}
+              materials={materials}
+              heatmapOverlay={heatmapOverlay}
+              wireframe={wireframe}
+              selectedRoomId={selectedRoomId}
+              selectedElementId={selectedElementId}
+              activeFaceIndex={surfaceContextMenu?.roomId === room.id ? surfaceContextMenu.faceIndex : null}
+              transformMode={transformMode}
+              gridSnap={gridSnap}
+              snapStep={snapStep}
+              magneticSnap={magneticSnap}
+              snapDistance={magneticSnapDistance}
+              preventCollision={preventCollision}
+              rooms={rooms}
+              storeys={storeys}
+              onSelectRoom={(id) => {
+                setSelectedRoomId(selectedRoomId === id ? null : id);
+                setSelectedElementId(null);
+                if (id) {
+                  setTimeout(() => nameInputRef.current?.focus(), 50);
+                }
+              }}
+              onSelectElement={(id) => setSelectedElementId(id)}
+              onFaceClick={(rId, fIdx) => {
+                setSurfaceContextMenu({ roomId: rId, faceIndex: fIdx });
+              }}
+              updateRoom={updateRoom}
+            />
+          ))}
         </Canvas>
+
+        {/* Clean Slate Empty State Indicator */}
+        {rooms.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-slate-900/80 backdrop-blur-sm z-10 pointer-events-none">
+            <div className="p-4 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-2xl max-w-sm flex flex-col items-center space-y-2 pointer-events-auto">
+              <Flame className="w-10 h-10 text-indigo-400 mb-1" />
+              <h3 className="text-sm font-bold text-white">
+                {(t.viewer3d as any)?.emptyProject || 'Bez objektů (Čistý projekt)'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                Začněte tlačítkem "+ Přidat místnost" pro vytvoření prvního 3D tělesa.
+              </p>
+              <button
+                onClick={handleAddDefaultRoom}
+                className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-md"
+              >
+                <Plus className="w-4 h-4" />
+                {t.viewer3d?.addRoom || 'Přidat místnost'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Wall Opening Creation Overlay Panel (Moved strictly to bottom-left corner and toggleable) */}
         {(showAddOpeningPanel || surfaceContextMenu) && (
@@ -1111,8 +1320,31 @@ export const BuildingViewer3D: React.FC = () => {
               </div>
             </div>
             <div>
-              <span className="text-slate-400">Plocha otvoru (A):</span> {(selectedElement.area).toFixed(2)} m²
+              <label className="block text-[10px] text-slate-400">{(t.viewer3d as any)?.openingQuantity || 'Počet otvorů / Quantity'}</label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={selectedElement.count || 1}
+                onChange={(e) => updateElement(selectedElement.id, { count: Math.max(1, parseInt(e.target.value) || 1) })}
+                className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded font-mono text-white text-xs font-bold text-amber-400"
+              />
             </div>
+            <div className="text-[11px]">
+              <span className="text-slate-400">Celková plocha (A_celk):</span> <span className="font-bold text-white font-mono">{((selectedElement.area) * (selectedElement.count || 1)).toFixed(2)} m²</span>
+            </div>
+
+            {/* Delete Opening Action Button */}
+            <button
+              onClick={() => {
+                deleteElement(selectedElement.id);
+                setSelectedElementId(null);
+              }}
+              className="w-full py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm mt-2"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{(t.viewer3d as any)?.deleteOpening || 'Smazat otvor'}</span>
+            </button>
           </div>
         )}
 

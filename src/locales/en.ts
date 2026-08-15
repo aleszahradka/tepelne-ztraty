@@ -260,6 +260,10 @@ export const en: Translations = {
     highlightOpening: "Highlight Opening",
     roomName: "Room Name",
     volumetricCollision: "3D Volumetric Collision",
-    addOpeningToggle: "Add Opening"
+    addOpeningToggle: "Add Opening",
+    openingQuantity: "Opening Quantity",
+    deleteOpening: "Delete Opening",
+    selectedFace: "Selected Face",
+    emptyProject: "Empty Project Start"
   }
 };
