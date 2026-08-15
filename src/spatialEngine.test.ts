@@ -10,7 +10,6 @@ import { createTriangularPrismGeometry } from './components/BuildingViewer3D';
 import { calculateTotalBuildingTransmissionLoss } from './mathEngine';
 import type { Room, Storey, EnvelopeElement, Assembly, Material, EnvironmentalSettings } from './types';
 
-// Helper assertion function
 function assert(condition: boolean, message: string) {
   if (!condition) {
     throw new Error(`Assertion failed: ${message}`);
@@ -20,7 +19,10 @@ function assert(condition: boolean, message: string) {
 export function runSpatialEngineTests() {
   console.log('--- Running 3D Spatial Engine Tests ---');
 
-  const storeys: Storey[] = [{ id: 's1', name: '1.NP', level_z: 0 }];
+  const storeys: Storey[] = [
+    { id: 's1', name: '1.NP', level_z: 0 },
+    { id: 's2', name: '2.NP', level_z: 2.7 }
+  ];
 
   const room1: Room = {
     id: 'r1',
@@ -46,7 +48,7 @@ export function runSpatialEngineTests() {
     area: 25,
     t_int: 20,
     air_exchange_rate: 0.5,
-    pos_x: 10, // Separated by 5 meters
+    pos_x: 10,
     pos_y: 0
   };
 
@@ -60,7 +62,7 @@ export function runSpatialEngineTests() {
     area: 25,
     t_int: 20,
     air_exchange_rate: 0.5,
-    pos_x: 5, // Directly touching Room 1 right face
+    pos_x: 5,
     pos_y: 0
   };
 
@@ -72,7 +74,7 @@ export function runSpatialEngineTests() {
   // Test 2: Adjacent rooms touching right wall
   const adjacentContacts = detectRoomAdjacencies([room1, room2Adjacent], storeys);
   assert(adjacentContacts.length === 1, 'Adjacent rooms should have 1 contact');
-  const expectedContactArea = 5 * 2.7; // 13.5 m²
+  const expectedContactArea = 5 * 2.7;
   assert(Math.abs(adjacentContacts[0].contactArea - expectedContactArea) < 0.01, `Contact area should be ${expectedContactArea}`);
   console.log(`✓ Test 2 Passed: Adjacent rooms detected contact area ${adjacentContacts[0].contactArea} m².`);
 
@@ -112,23 +114,23 @@ export function runSpatialEngineTests() {
   console.log(`✓ Test 4 Passed: Building transmission loss reduced from ${lossSeparated.toFixed(1)} W to ${lossAdjacent.toFixed(1)} W.`);
 
   // Test 5: Magnetic Face Snapping
-  const nearRoomX = 4.88; // 0.12m away from room1 right wall (X=5.0)
+  const nearRoomX = 4.88;
   const snapRes = applyMagneticFaceSnapping(
     { ...room2Separated, pos_x: nearRoomX, pos_y: 0, width: 5, length: 5 },
     nearRoomX,
     0,
     [room1],
     storeys,
-    0.2
+    0.5
   );
-  assert(snapRes.isSnappedX, 'Magnetic snapping should trigger for X distance < 0.2m');
+  assert(snapRes.isSnappedX, 'Magnetic snapping should trigger for X distance < 0.5m');
   assert(snapRes.snappedX === 5.0, `Snapped X should be flush 5.0m, got ${snapRes.snappedX}`);
   console.log(`✓ Test 5 Passed: Magnetic snap aligned position from ${nearRoomX}m to ${snapRes.snappedX}m.`);
 
   // Test 6: AABB Collision Prevention
   const collidingRoomAABB = {
     roomId: 'r3',
-    minX: 2.0, // Interpenentrates Room 1 (0 to 5)
+    minX: 2.0,
     maxX: 7.0,
     minY: 0,
     maxY: 2.7,
@@ -148,7 +150,7 @@ export function runSpatialEngineTests() {
   assert(roofGeom.pitchAngle > 0, 'Pitch angle should be calculated');
   console.log(`✓ Test 7 Passed: Gable roof prism area=${roofGeom.roofSlopeArea.toFixed(1)}m², pitch=${roofGeom.pitchAngle}°.`);
 
-  // Test 8: Stacking Triangular Roof Prism Flush on Top of Room Volume (Y-axis Stacking Tolerance)
+  // Test 8: Stacking Triangular Roof Prism Flush on Top of Room Volume
   const roomBase: Room = {
     id: 'r_base',
     name: '1.NP Room',
@@ -167,7 +169,7 @@ export function runSpatialEngineTests() {
     roomId: 'roof_1',
     minX: 0,
     maxX: 6,
-    minY: 2.7, // Positioned flush on top of roomBase ceiling (maxY = 2.7)
+    minY: 2.7,
     maxY: 5.2,
     minZ: 0,
     maxZ: 10,
@@ -182,7 +184,7 @@ export function runSpatialEngineTests() {
 
   // Test 9: Configurable Magnetic Snap Threshold
   const customThreshold = 0.35;
-  const farX = 4.70; // 0.30m away from room1 right face (X=5.0)
+  const farX = 4.70;
   const snapResCustom = applyMagneticFaceSnapping(
     { ...room2Separated, pos_x: farX, pos_y: 0, width: 5, length: 5 },
     farX,
@@ -209,7 +211,7 @@ export function runSpatialEngineTests() {
     roomId: 'roof_1',
     minX: 0,
     maxX: 6,
-    minY: 1.5, // Pushed 1.2m down INTO roomBase volume (0 to 2.7)
+    minY: 1.5,
     maxY: 4.0,
     minZ: 0,
     maxZ: 10,
@@ -244,7 +246,7 @@ export function runSpatialEngineTests() {
   assert(lossVirtual > 0, 'Virtual/manual envelope element must contribute to total heat loss math computations');
   console.log(`✓ Test 13 Passed: Virtual manual element heat loss computed as ${lossVirtual.toFixed(1)} W.`);
 
-  // Test 14: Floor Plane Parent Face Assignment (parent_face = 'bottom' vs 'top')
+  // Test 14: Floor Plane Parent Face Assignment
   const floorSurfaces = generateRoomBoundarySurfaces(room1, storeys, 'asm1');
   const floorSurface = floorSurfaces.find((s) => s.id.includes('floor'));
   const ceilingSurface = floorSurfaces.find((s) => s.id.includes('roof'));
@@ -252,7 +254,7 @@ export function runSpatialEngineTests() {
   assert(ceilingSurface?.parent_face === 'top', 'Ceiling surface must have parent_face = "top"');
   console.log('✓ Test 14 Passed: Boundary surfaces correctly distinguish floor (bottom) vs ceiling (top).');
 
-  // Test 15: Opening Quantity Multiplier Math (count = 3)
+  // Test 15: Opening Quantity Multiplier Math
   const parentWall: EnvelopeElement = {
     id: 'wall_host',
     name: 'Host Wall',
@@ -275,7 +277,7 @@ export function runSpatialEngineTests() {
     parent_element_id: 'wall_host',
     relative_angle: 0,
     tilt: 90,
-    count: 3 // 3 instances of 2.0 m² window = 6.0 m² total
+    count: 3
   };
   const netAreaWithCount = calculateAdjustedNetArea(parentWall, [parentWall, childOpening], []);
   assert(netAreaWithCount === 24.0, `Parent wall net area should equal 30 - (2.0 * 3) = 24.0 m², got ${netAreaWithCount}`);
@@ -287,7 +289,7 @@ export function runSpatialEngineTests() {
   testPrismGeom.dispose();
   console.log('✓ Test 16 Passed: Three.js prism geometry properly allocated and disposed without memory leaks.');
 
-  // Test 17: Vertical Stacking Validation (1.NP & 2.NP flush stacking)
+  // Test 17: Vertical Stacking Validation
   const room1NP: Room = { id: 'r_1np', name: '1.NP', storey_id: 's1', width: 5, length: 5, height: 2.7, area: 25, t_int: 20, air_exchange_rate: 0.5 };
   const storey2NP: Storey = { id: 's2', name: '2.NP', level_z: 2.7 };
   const room2NP: Room = { id: 'r_2np', name: '2.NP', storey_id: 's2', width: 5, length: 5, height: 2.7, area: 25, t_int: 20, air_exchange_rate: 0.5 };
@@ -295,7 +297,7 @@ export function runSpatialEngineTests() {
   const room2NPAABB = {
     roomId: 'r_2np',
     minX: 0, maxX: 5,
-    minY: 2.7, maxY: 5.4, // Resting flush on top of 1.NP (maxY = 2.7)
+    minY: 2.7, maxY: 5.4,
     minZ: 0, maxZ: 5,
     width: 5, height: 2.7, length: 5
   };
@@ -306,24 +308,63 @@ export function runSpatialEngineTests() {
   // Test 18: Continuous Interior Clipping Block
   const clippedAABB = {
     roomId: 'r_clip',
-    minX: 1.0, maxX: 6.0, // Overlaps room1NP X (0..5) by 4m
-    minY: 0.5, maxY: 3.2, // Overlaps room1NP Y (0..2.7) by 2.2m
-    minZ: 1.0, maxZ: 6.0, // Overlaps room1NP Z (0..5) by 4m
+    minX: 1.0, maxX: 6.0,
+    minY: 0.5, maxY: 3.2,
+    minZ: 1.0, maxZ: 6.0,
     width: 5, height: 2.7, length: 5
   };
   const isClippingBlocked = checkRoomAABBCollision('r_clip', clippedAABB, [room1NP], storeys);
   assert(isClippingBlocked === true, 'Interior volume interpenetration must trigger collision block');
   console.log('✓ Test 18 Passed: Continuous 3D spatial collision engine blocked interior clipping.');
 
-  // Test 19: Elevation-Preserving Magnetic Snapping (Z = 2.7m)
+  // Test 19: Elevation-Preserving Magnetic Snapping
   const elevatedRoom: Room = { id: 'r_elevated', name: '2.NP Room', storey_id: 's2', width: 5, length: 5, height: 2.7, area: 25, t_int: 20, air_exchange_rate: 0.5, pos_x: 4.88, pos_y: 0 };
-  const elevatedSnapRes = applyMagneticFaceSnapping(elevatedRoom, 4.88, 0, [room2NP], [storeys[0], storey2NP], 0.2, 2.7);
+  const elevatedSnapRes = applyMagneticFaceSnapping(elevatedRoom, 4.88, 0, [room2NP], [storeys[0], storey2NP], 0.5, 2.7);
   assert(elevatedSnapRes.isSnappedX === true, 'X face snapping should trigger for near X');
   assert(elevatedSnapRes.snappedLevelZ === 2.7, `Snapped level Z must preserve elevation (2.7m), got ${elevatedSnapRes.snappedLevelZ}`);
   console.log(`✓ Test 19 Passed: Magnetic snapping preserved room height level at Z=${elevatedSnapRes.snappedLevelZ}m without dropping to 0.`);
 
+  // Test 20: Horizontal 3D Volume Collision Rejection
+  const horizontalOverlapAABB = {
+    roomId: 'r_overlap_h',
+    minX: 2.5, maxX: 7.5, // Overlaps room1 (0 to 5)
+    minY: 0, maxY: 2.7,
+    minZ: 0, maxZ: 5,
+    width: 5, height: 2.7, length: 5
+  };
+  const isHorizontalBlocked = checkRoomAABBCollision('r_overlap_h', horizontalOverlapAABB, [room1], storeys);
+  assert(isHorizontalBlocked === true, 'Horizontal volume interpenetration must be blocked by collision guard');
+  console.log('✓ Test 20 Passed: Horizontal 3D volume collision prevention correctly blocked interpenetration.');
+
+  // Test 21: Vertical 3D Volume Collision Rejection
+  const verticalOverlapAABB = {
+    roomId: 'r_overlap_v',
+    minX: 0, maxX: 5,
+    minY: 1.0, maxY: 3.7, // Interpenetrates lower room volume (minY=0, maxY=2.7)
+    minZ: 0, maxZ: 5,
+    width: 5, height: 2.7, length: 5
+  };
+  const isVerticalBlocked = checkRoomAABBCollision('r_overlap_v', verticalOverlapAABB, [room1], storeys);
+  assert(isVerticalBlocked === true, 'Vertical volume interpenetration must be blocked by collision guard');
+  console.log('✓ Test 21 Passed: Vertical 3D volume collision prevention correctly blocked interpenetration.');
+
+  // Test 22: Room Bottom Face Snapping to Storey Elevation Level Plane
+  const storey2Elevation = 2.7;
+  const candidateElevationNearStorey = 2.82; // 0.12m above 2.NP storey plane
+  const storeySnapRes = applyMagneticFaceSnapping(
+    elevatedRoom,
+    0,
+    0,
+    [],
+    storeys,
+    0.5,
+    candidateElevationNearStorey
+  );
+  assert(storeySnapRes.isSnappedLevelZ === true, 'Bottom face near storey level plane must trigger vertical snap');
+  assert(storeySnapRes.snappedLevelZ === storey2Elevation, `Snapped level Z must equal storey elevation plane (${storey2Elevation}m), got ${storeySnapRes.snappedLevelZ}`);
+  console.log(`✓ Test 22 Passed: Room bottom face snapped flush to Storey Level Plane at Z=${storeySnapRes.snappedLevelZ}m.`);
+
   console.log('--- ALL SPATIAL ENGINE TESTS PASSED SUCCESSFULLY ---');
 }
 
-// Always run tests when imported or executed
 runSpatialEngineTests();
