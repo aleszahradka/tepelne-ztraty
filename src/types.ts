@@ -50,7 +50,7 @@ export interface Room {
 export interface EnvelopeElement {
   id: string; // Unique ID
   name: string;
-  area: number; // Gross Area (A_gross) in m²
+  area: number; // Gross Area (A_gross) in m² (single instance area if count > 1)
   assembly_id: string; // Links to Assembly.id
   adjacent_space_type: AdjacentSpaceType;
   b_factor: number; // Temperature reduction factor
@@ -65,6 +65,8 @@ export interface EnvelopeElement {
   offset_y?: number; // Offset Y position on parent surface in meters
   is_virtual?: boolean; // True if manually entered without a 3D volume reference (bypasses 3D viewport rendering)
   source?: 'volume' | 'manual'; // Origin source of envelope surface
+  count?: number; // Quantity multiplier for openings/elements (default 1, minimum 1)
+  parent_face?: 'front' | 'right' | 'back' | 'left' | 'top' | 'bottom'; // Explicit 3D target face binding
 }
 
 export interface EnvironmentalSettings {

@@ -35,8 +35,6 @@ export const RoomManager: React.FC = () => {
   const [newRoomHeight, setNewRoomHeight] = useState<number>(2.7);
   const [newRoomTInt, setNewRoomTInt] = useState<number>(20);
   const [newRoomAirExchange, setNewRoomAirExchange] = useState<number>(0.5);
-  const [newRoomPosX, setNewRoomPosX] = useState<number>(0);
-  const [newRoomPosY, setNewRoomPosY] = useState<number>(0);
 
   const handleWidthChange = (val: number | '') => {
     setNewRoomWidth(val);
@@ -64,7 +62,7 @@ export const RoomManager: React.FC = () => {
 
     addStorey(newStorey);
     setNewStoreyName('');
-    setNewStoreyLevel((prev) => prev + 3); // auto-increment level Z for next floor
+    setNewStoreyLevel((prev) => prev + 3);
   };
 
   const handleCreateRoom = (e: React.FormEvent) => {
@@ -73,18 +71,29 @@ export const RoomManager: React.FC = () => {
 
     const storeyId = newRoomStoreyId || storeys[0]?.id || '';
 
+    // Synchronize room creation offsets so new rooms spawn outside existing volumes
+    let posX = 0;
+    let posY = 0;
+    if (rooms.length > 0) {
+      const maxX = Math.max(...rooms.map((r) => (r.pos_x ?? 0) + (r.width ?? 4)));
+      posX = maxX + 1.0;
+    }
+
+    const w = typeof newRoomWidth === 'number' && newRoomWidth > 0 ? newRoomWidth : 5;
+    const l = typeof newRoomLength === 'number' && newRoomLength > 0 ? newRoomLength : 4;
+
     const newRoom: Room = {
       id: generateUUID(),
       name: newRoomName.trim(),
       storey_id: storeyId,
-      width: typeof newRoomWidth === 'number' && newRoomWidth > 0 ? newRoomWidth : undefined,
-      length: typeof newRoomLength === 'number' && newRoomLength > 0 ? newRoomLength : undefined,
+      width: w,
+      length: l,
       area: Math.max(0.1, newRoomArea),
       height: Math.max(1, newRoomHeight),
       t_int: newRoomTInt,
       air_exchange_rate: Math.max(0, newRoomAirExchange),
-      pos_x: newRoomPosX,
-      pos_y: newRoomPosY
+      pos_x: posX,
+      pos_y: posY
     };
 
     addRoom(newRoom);
@@ -220,7 +229,7 @@ export const RoomManager: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
               <div>
                 <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.width}</label>
                 <input
@@ -242,28 +251,6 @@ export const RoomManager: React.FC = () => {
                   placeholder="e.g. 4"
                   value={newRoomLength}
                   onChange={(e) => handleLengthChange(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.posX}</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  placeholder="0"
-                  value={newRoomPosX}
-                  onChange={(e) => setNewRoomPosX(parseFloat(e.target.value) || 0)}
-                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">{t.hierarchy.posY}</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  placeholder="0"
-                  value={newRoomPosY}
-                  onChange={(e) => setNewRoomPosY(parseFloat(e.target.value) || 0)}
                   className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs font-mono focus:ring-indigo-500"
                 />
               </div>

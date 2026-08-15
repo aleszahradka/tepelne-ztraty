@@ -258,7 +258,20 @@ export const cs = {
     highlightOpening: "Zvýraznit otvor",
     roomName: "Název místnosti",
     volumetricCollision: "3D Objemová kolize",
-    addOpeningToggle: "Dodatečný otvor"
+    addOpeningToggle: "Dodatečný otvor",
+    openingQuantity: "Počet otvorů",
+    deleteOpening: "Smazat otvor",
+    selectedFace: "Vybraná plocha",
+    emptyProject: "Bez objektů (Čistý projekt)",
+    resetCameraOnly: "Resetovat pouze kameru",
+    spatialCollision: "Prostorová 3D kolize",
+    preserveElevation: "Zachovat výškovou úroveň",
+    storeyLevelPlane: "Úroveň podlaží",
+    colors3D: "Barvy 3D zobrazení",
+    bgColor: "Barva pozadí",
+    wireframeColor: "Barva drátového modelu",
+    heatmapRange: "Rozsah tepelné mapy",
+    verticalSnap: "Vertikální přichycení"
   }
 };
 export type Translations = typeof cs;

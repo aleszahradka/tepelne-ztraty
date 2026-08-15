@@ -5,6 +5,30 @@ import { generateRoomBoundarySurfaces } from './spatialEngine';
 
 export { BUILT_IN_MATERIALS };
 
+export interface Viewer3DTheme {
+  bg_color: string;
+  room_color: string;
+  wireframe_color: string;
+  storey_plane_color: string;
+  storey_plane_opacity: number;
+  opening_color: string;
+  heatmap_low: string;
+  heatmap_mid: string;
+  heatmap_high: string;
+}
+
+export const DEFAULT_VIEWER_3D_THEME: Viewer3DTheme = {
+  bg_color: '#0f172a',
+  room_color: '#38bdf8',
+  wireframe_color: '#1e293b',
+  storey_plane_color: '#6366f1',
+  storey_plane_opacity: 0.25,
+  opening_color: '#0284c7',
+  heatmap_low: '#22c55e',
+  heatmap_mid: '#f59e0b',
+  heatmap_high: '#ef4444'
+};
+
 // Helper to generate IDs
 export function generateUUID(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -21,47 +45,9 @@ const DEFAULT_ENVIRONMENTAL_SETTINGS: EnvironmentalSettings = {
   building_orientation: 0
 };
 
-// Initial storeys and rooms
-const defaultStoreyId = 'storey-1np';
-const INITIAL_STOREYS: Storey[] = [
-  {
-    id: defaultStoreyId,
-    name: '1.NP / Ground Floor',
-    level_z: 0
-  }
-];
-
-const livingRoomId = 'room-living-room';
-const bathroomId = 'room-bathroom';
-
-const INITIAL_ROOMS: Room[] = [
-  {
-    id: livingRoomId,
-    name: '1.01 Obývací pokoj / Living Room',
-    storey_id: defaultStoreyId,
-    area: 30,
-    height: 2.7,
-    t_int: 20,
-    air_exchange_rate: 0.5,
-    width: 5,
-    length: 6,
-    pos_x: 0,
-    pos_y: 0
-  },
-  {
-    id: bathroomId,
-    name: '1.02 Koupelna / Bathroom',
-    storey_id: defaultStoreyId,
-    area: 8,
-    height: 2.7,
-    t_int: 24,
-    air_exchange_rate: 1.5,
-    width: 2.5,
-    length: 3.2,
-    pos_x: 5,
-    pos_y: 0
-  }
-];
+// Initial storeys and rooms (Clean Slate: 0 rooms, 0 surfaces, 0 openings)
+const INITIAL_STOREYS: Storey[] = [];
+const INITIAL_ROOMS: Room[] = [];
 
 // Initial demo assemblies
 const demoAssemblyWallId = 'asm-wall-insulated';
@@ -102,70 +88,8 @@ const INITIAL_ASSEMBLIES: Assembly[] = [
   }
 ];
 
-const northWallId = generateUUID();
-
-// Initial demo envelope elements
-const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [
-  {
-    id: northWallId,
-    name: "North Wall (External) / Severní stěna",
-    area: 45.0,
-    assembly_id: demoAssemblyWallId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.05,
-    room_id: livingRoomId,
-    relative_angle: 0,
-    tilt: 90
-  },
-  {
-    id: generateUUID(),
-    name: "South Wall (External) / Jižní stěna",
-    area: 45.0,
-    assembly_id: demoAssemblyWallId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.05,
-    room_id: livingRoomId,
-    relative_angle: 180,
-    tilt: 90
-  },
-  {
-    id: generateUUID(),
-    name: "Main Roof / Hlavní střecha",
-    area: 60.0,
-    assembly_id: demoAssemblyRoofId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.05,
-    relative_angle: 0,
-    tilt: 0
-  },
-  {
-    id: generateUUID(),
-    name: "Living Room Window / Obývací okno",
-    area: 6.0,
-    assembly_id: demoAssemblyWindowId,
-    adjacent_space_type: "exterior",
-    b_factor: 1.0,
-    delta_u_tb: 0.00,
-    parent_element_id: northWallId,
-    room_id: livingRoomId,
-    relative_angle: 0,
-    tilt: 90
-  },
-  {
-    id: generateUUID(),
-    name: "Basement Floor Connection / Podlaha suterénu",
-    area: 60.0,
-    assembly_id: demoAssemblyWallId, // placeholder
-    adjacent_space_type: "ground",
-    b_factor: 0.45,
-    delta_u_tb: 0.02,
-    relative_angle: 0,
-    tilt: 0
-  }
-];
+// Initial envelope elements (Clean Slate Start)
+const INITIAL_ENVELOPE_ELEMENTS: EnvelopeElement[] = [];
 
 // Get initial language preference from localStorage, default to 'cs' (Czech)
 const getInitialLanguage = (): 'cs' | 'en' => {
@@ -182,10 +106,14 @@ interface HeatLossState {
   storeys: Storey[];
   rooms: Room[];
   magnetic_snap_distance: number;
+  viewer_3d_theme: Viewer3DTheme;
 
   // Actions
   setLanguage: (lang: 'cs' | 'en') => void;
   setMagneticSnapDistance: (dist: number) => void;
+  updateViewer3DTheme: (theme: Partial<Viewer3DTheme>) => void;
+  resetViewer3DTheme: () => void;
+
   addMaterial: (material: Material) => void;
   deleteMaterial: (id: string) => void;
 
@@ -223,10 +151,19 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
   storeys: INITIAL_STOREYS,
   rooms: INITIAL_ROOMS,
-  magnetic_snap_distance: 0.15,
+  magnetic_snap_distance: 0.50, // Default 0.5m
+  viewer_3d_theme: DEFAULT_VIEWER_3D_THEME,
 
   setMagneticSnapDistance: (dist) => set(() => ({
-    magnetic_snap_distance: Math.min(0.5, Math.max(0.02, dist))
+    magnetic_snap_distance: Math.min(1.0, Math.max(0.02, dist))
+  })),
+
+  updateViewer3DTheme: (updated) => set((state) => ({
+    viewer_3d_theme: { ...state.viewer_3d_theme, ...updated }
+  })),
+
+  resetViewer3DTheme: () => set(() => ({
+    viewer_3d_theme: DEFAULT_VIEWER_3D_THEME
   })),
 
   // Language management
@@ -250,7 +187,7 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   }),
 
   deleteMaterial: (id) => set((state) => ({
-    materials: state.materials.filter((m) => m.id !== id || !m.is_custom) // Cannot delete built-in materials
+    materials: state.materials.filter((m) => m.id !== id || !m.is_custom)
   })),
 
   // Assemblies
@@ -356,6 +293,7 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   }),
 
   updateRoom: (id, updated) => set((state) => {
+    const previousRoom = state.rooms.find((r) => r.id === id);
     const updatedRooms = state.rooms.map((r) => (r.id === id ? { ...r, ...updated } : r));
     const targetRoom = updatedRooms.find((r) => r.id === id);
 
@@ -364,21 +302,51 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
     const defaultAssembly = state.assemblies[0]?.id || '';
     const freshSurfaces = generateRoomBoundarySurfaces(targetRoom, state.storeys, defaultAssembly);
 
-    // Sync gross areas of existing generated boundary elements
-    const updatedElements = state.envelope_elements.map((el) => {
-      if (el.room_id !== id) return el;
-      const matchingFresh = freshSurfaces.find((f) => f.id === el.id);
-      if (matchingFresh) {
+    const isShapeTypeChanged = previousRoom && previousRoom.shape_type !== targetRoom.shape_type;
+
+    let updatedElements: EnvelopeElement[] = [];
+
+    if (isShapeTypeChanged) {
+      const nonRoomElements = state.envelope_elements.filter((el) => el.room_id !== id);
+      const roomChildOpenings = state.envelope_elements.filter(
+        (el) => el.room_id === id && el.parent_element_id !== undefined
+      );
+
+      const remappedOpenings = roomChildOpenings.map((child) => {
+        const matchingParent = freshSurfaces.find(
+          (p) => p.parent_face === child.parent_face || p.relative_angle === child.relative_angle
+        ) || freshSurfaces[0];
         return {
-          ...el,
-          area: matchingFresh.area,
-          name: el.name.startsWith(targetRoom.name.split(' – ')[0])
-            ? el.name
-            : `${targetRoom.name} – ${el.name.split(' – ')[1] || el.name}`
+          ...child,
+          parent_element_id: matchingParent?.id,
+          parent_face: matchingParent?.parent_face
         };
+      });
+
+      updatedElements = [...nonRoomElements, ...freshSurfaces, ...remappedOpenings];
+    } else {
+      const existingRoomSurfaces = state.envelope_elements.filter((el) => el.room_id === id && !el.parent_element_id);
+      const hasGeneratedSurfaces = existingRoomSurfaces.length > 0;
+
+      if (!hasGeneratedSurfaces) {
+        updatedElements = [...state.envelope_elements, ...freshSurfaces];
+      } else {
+        updatedElements = state.envelope_elements.map((el) => {
+          if (el.room_id !== id) return el;
+          const matchingFresh = freshSurfaces.find((f) => f.id === el.id);
+          if (matchingFresh) {
+            return {
+              ...el,
+              area: matchingFresh.area,
+              name: el.name.startsWith(targetRoom.name.split(' – ')[0])
+                ? el.name
+                : `${targetRoom.name} – ${el.name.split(' – ')[1] || el.name}`
+            };
+          }
+          return el;
+        });
       }
-      return el;
-    });
+    }
 
     return {
       rooms: updatedRooms,
@@ -387,8 +355,6 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   }),
 
   deleteRoom: (id) => set((state) => {
-    // Delete generated boundary elements of the deleted room
-    // Preserve child openings by clearing parent_element_id & room_id so they move safely to the unassigned elements pool
     const updatedElements = state.envelope_elements
       .filter((e) => e.room_id !== id)
       .map((e) => {
@@ -420,7 +386,6 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       category: typeof m.category === 'string' ? { cs: m.category, en: m.category } : m.category
     }));
 
-    // Merge loaded materials to avoid wiping out default ones if they were missing
     const mergedMaterials = [...BUILT_IN_MATERIALS];
     loadedMaterials.forEach((m) => {
       if (!mergedMaterials.some((bm) => bm.id === m.id)) {
@@ -428,14 +393,12 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
       }
     });
 
-    // Fallbacks for envelope elements
     const loadedElements = (project.envelope_elements || []).map((e) => ({
       ...e,
       relative_angle: typeof e.relative_angle === 'number' ? e.relative_angle : 0,
       tilt: typeof e.tilt === 'number' ? e.tilt : 90
     }));
 
-    // Fallbacks for environmental settings
     const loadedSettings: EnvironmentalSettings = {
       ...DEFAULT_ENVIRONMENTAL_SETTINGS,
       ...(project.environmental_settings || {}),
@@ -457,9 +420,9 @@ export const useHeatLossStore = create<HeatLossState>((set) => ({
   resetProject: () => set(() => ({
     materials: BUILT_IN_MATERIALS,
     assemblies: INITIAL_ASSEMBLIES,
-    envelope_elements: INITIAL_ENVELOPE_ELEMENTS,
+    envelope_elements: [],
     environmental_settings: DEFAULT_ENVIRONMENTAL_SETTINGS,
-    storeys: INITIAL_STOREYS,
-    rooms: INITIAL_ROOMS
+    storeys: [],
+    rooms: []
   }))
 }));

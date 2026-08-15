@@ -16,8 +16,8 @@ function App() {
       {/* Dynamic Serialization and Control Header */}
       <Header />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+      {/* Main Full-Width Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-8">
 
         {/* Real-time Dashboard Summary Statistics */}
         <section id="results-dashboard">
@@ -29,36 +29,32 @@ function App() {
           <BuildingViewer3D />
         </section>
 
-        {/* Dynamic 2-Column Physical Grid Layout */}
+        {/* Upper Full-Width Section: Environmental Settings & Material Database */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <section id="environmental-settings" className="lg:col-span-5">
+            <EnvironmentalSettingsPanel />
+          </section>
 
-          {/* Left Column: Environmental Settings & Raw Material Database */}
-          <div className="lg:col-span-4 space-y-6">
-            <section id="environmental-settings">
-              <EnvironmentalSettingsPanel />
-            </section>
-
-            <section id="materials-database">
-              <MaterialDatabase />
-            </section>
-          </div>
-
-          {/* Right Column: Hierarchy, Assemblies & Envelope configuration */}
-          <div className="lg:col-span-8 space-y-6">
-            <section id="room-manager">
-              <RoomManager />
-            </section>
-
-            <section id="assembly-builder">
-              <AssemblyBuilder />
-            </section>
-
-            <section id="envelope-manager">
-              <EnvelopeManager />
-            </section>
-          </div>
-
+          <section id="materials-database" className="lg:col-span-7">
+            <MaterialDatabase />
+          </section>
         </div>
+
+        {/* Lower Full-Width Section: Building Hierarchy, Assemblies & Envelope Manager */}
+        <div className="space-y-8">
+          <section id="room-manager">
+            <RoomManager />
+          </section>
+
+          <section id="assembly-builder">
+            <AssemblyBuilder />
+          </section>
+
+          <section id="envelope-manager">
+            <EnvelopeManager />
+          </section>
+        </div>
+
       </main>
 
       {/* Footer */}

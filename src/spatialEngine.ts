@@ -69,7 +69,7 @@ export function calculateRoomAABB(room: Room, storeys: Storey[] = []): RoomAABB 
 
 /**
  * Magnetic Face Snapping Logic:
- * Checks if active candidate position is within snapThreshold (< 0.2m) of an adjacent room's face,
+ * Checks if active candidate position is within snapThreshold (< 0.5m) of an adjacent room's face or Storey Level Plane,
  * and snaps candidate position flush to the target face along X, Y, or Z axes.
  */
 export function applyMagneticFaceSnapping(
@@ -78,23 +78,26 @@ export function applyMagneticFaceSnapping(
   candidateY: number,
   rooms: Room[],
   storeys: Storey[] = [],
-  snapThreshold: number = 0.2,
+  snapThreshold: number = 0.5,
   candidateLevelZ?: number
 ): {
   snappedX: number;
   snappedY: number;
-  snappedLevelZ?: number;
+  snappedLevelZ: number;
   isSnappedX: boolean;
   isSnappedY: boolean;
-  isSnappedLevelZ?: boolean;
+  isSnappedLevelZ: boolean;
 } {
   const width = activeRoom.width || (activeRoom.area ? Math.sqrt(activeRoom.area) : 4);
   const length = activeRoom.length || (activeRoom.area ? Math.sqrt(activeRoom.area) : 4);
   const height = activeRoom.height || 2.7;
 
+  const activeStorey = storeys.find((s) => s.id === activeRoom.storey_id);
+  const activeLevelZ = candidateLevelZ ?? activeStorey?.level_z ?? 0;
+
   let snappedX = candidateX;
   let snappedY = candidateY;
-  let snappedLevelZ = candidateLevelZ;
+  let snappedLevelZ = activeLevelZ;
 
   let isSnappedX = false;
   let isSnappedY = false;
@@ -105,56 +108,52 @@ export function applyMagneticFaceSnapping(
   const candidateMinZ = candidateY;
   const candidateMaxZ = candidateY + length;
 
+  // 1. Snap room bottom face flush to Storey Level Planes
+  storeys.forEach((st) => {
+    const storeyElevation = st.level_z ?? 0;
+    if (Math.abs(activeLevelZ - storeyElevation) < snapThreshold) {
+      snappedLevelZ = storeyElevation;
+      isSnappedLevelZ = true;
+    }
+  });
+
+  // 2. Snap to adjacent room faces
   rooms.forEach((r) => {
     if (r.id === activeRoom.id) return;
     const targetAABB = calculateRoomAABB(r, storeys);
 
     // X-axis alignment snapping
-    // 1. Candidate Left face (minX) near Target Right face (maxX)
     if (Math.abs(candidateMinX - targetAABB.maxX) < snapThreshold) {
       snappedX = targetAABB.maxX;
       isSnappedX = true;
-    }
-    // 2. Candidate Right face (maxX) near Target Left face (minX)
-    else if (Math.abs(candidateMaxX - targetAABB.minX) < snapThreshold) {
+    } else if (Math.abs(candidateMaxX - targetAABB.minX) < snapThreshold) {
       snappedX = targetAABB.minX - width;
       isSnappedX = true;
-    }
-    // 3. Candidate Left face near Target Left face (Flush left)
-    else if (Math.abs(candidateMinX - targetAABB.minX) < snapThreshold) {
+    } else if (Math.abs(candidateMinX - targetAABB.minX) < snapThreshold) {
       snappedX = targetAABB.minX;
       isSnappedX = true;
     }
 
-    // Z-axis (Y offset in 2D plane) alignment snapping
-    // 1. Candidate Front face (minZ) near Target Back face (maxZ)
+    // Z-axis alignment snapping
     if (Math.abs(candidateMinZ - targetAABB.maxZ) < snapThreshold) {
       snappedY = targetAABB.maxZ;
       isSnappedY = true;
-    }
-    // 2. Candidate Back face (maxZ) near Target Front face (minZ)
-    else if (Math.abs(candidateMaxZ - targetAABB.minZ) < snapThreshold) {
+    } else if (Math.abs(candidateMaxZ - targetAABB.minZ) < snapThreshold) {
       snappedY = targetAABB.minZ - length;
       isSnappedY = true;
-    }
-    // 3. Candidate Front face near Target Front face (Flush front)
-    else if (Math.abs(candidateMinZ - targetAABB.minZ) < snapThreshold) {
+    } else if (Math.abs(candidateMinZ - targetAABB.minZ) < snapThreshold) {
       snappedY = targetAABB.minZ;
       isSnappedY = true;
     }
 
-    // Y-axis (Elevation Level Z) alignment snapping:
-    // Support snapping candidate bottom face directly onto target top face even if candidateLevelZ is inferred
-    const effectiveCandidateLevelZ = candidateLevelZ ?? calculateRoomAABB(activeRoom, storeys).minY;
-    const candidateMinY = effectiveCandidateLevelZ;
-    const candidateMaxY = effectiveCandidateLevelZ + height;
+    // Y-axis alignment snapping
+    const candidateMinY = activeLevelZ;
+    const candidateMaxY = activeLevelZ + height;
 
-    // Bottom face near target top face (Stack on top face)
     if (Math.abs(candidateMinY - targetAABB.maxY) < snapThreshold) {
       snappedLevelZ = targetAABB.maxY;
       isSnappedLevelZ = true;
 
-      // Align footprint X and Z boundaries flush with target footprint if within snap threshold
       if (Math.abs(candidateMinX - targetAABB.minX) < snapThreshold * 1.5) {
         snappedX = targetAABB.minX;
         isSnappedX = true;
@@ -163,14 +162,10 @@ export function applyMagneticFaceSnapping(
         snappedY = targetAABB.minZ;
         isSnappedY = true;
       }
-    }
-    // Top face near target bottom face
-    else if (Math.abs(candidateMaxY - targetAABB.minY) < snapThreshold) {
+    } else if (Math.abs(candidateMaxY - targetAABB.minY) < snapThreshold) {
       snappedLevelZ = targetAABB.minY - height;
       isSnappedLevelZ = true;
-    }
-    // Bottom face near target bottom face (Flush level)
-    else if (Math.abs(candidateMinY - targetAABB.minY) < snapThreshold) {
+    } else if (Math.abs(candidateMinY - targetAABB.minY) < snapThreshold) {
       snappedLevelZ = targetAABB.minY;
       isSnappedLevelZ = true;
     }
@@ -179,7 +174,7 @@ export function applyMagneticFaceSnapping(
   return {
     snappedX: Math.round(snappedX * 100) / 100,
     snappedY: Math.round(snappedY * 100) / 100,
-    snappedLevelZ: snappedLevelZ !== undefined ? Math.round(snappedLevelZ * 100) / 100 : undefined,
+    snappedLevelZ: Math.round(snappedLevelZ * 100) / 100,
     isSnappedX,
     isSnappedY,
     isSnappedLevelZ
@@ -390,7 +385,7 @@ export function calculateAdjustedNetArea(
 ): number {
   const childArea = allElements
     .filter((e) => e.parent_element_id === element.id)
-    .reduce((sum, child) => sum + child.area, 0);
+    .reduce((sum, child) => sum + child.area * Math.max(1, child.count || 1), 0);
 
   let contactArea = 0;
 
@@ -404,7 +399,8 @@ export function calculateAdjustedNetArea(
     );
   }
 
-  const netArea = element.area - childArea - contactArea;
+  const grossTotalArea = element.area * Math.max(1, element.count || 1);
+  const netArea = grossTotalArea - childArea - contactArea;
   return Math.max(0, netArea);
 }
 
@@ -420,16 +416,14 @@ export function calculateRoofPrismGeometry(
   eaveHeight: number = 0.5
 ): { roofSlopeArea: number; pitchAngle: number; gableWallArea: number } {
   if (shapeType === 'triangular_prism') {
-    // Gable Roof (Sedlová střecha): Gable base width W, ridge height H
     const halfW = width / 2;
     const slopeLength = Math.sqrt(halfW * halfW + height * height);
-    const roofSlopeArea = 2 * slopeLength * length; // 2 pitched roof sides
+    const roofSlopeArea = 2 * slopeLength * length;
     const pitchAngle = Math.round(Math.atan2(height, halfW) * (180 / Math.PI));
-    const gableWallArea = width * height; // 2 triangular ends = 1 rectangle W * H
+    const gableWallArea = width * height;
 
     return { roofSlopeArea, pitchAngle, gableWallArea };
   } else {
-    // Shed / Mono-pitch Roof (Pultová střecha)
     const heightDiff = Math.max(0.1, height - eaveHeight);
     const slopeLength = Math.sqrt(width * width + heightDiff * heightDiff);
     const roofSlopeArea = slopeLength * length;
@@ -458,7 +452,6 @@ export function generateRoomBoundarySurfaces(
   const h = room.height || 2.7;
   const isGroundLevel = Math.abs(levelZ) < 0.05;
 
-  // Generate deterministic unique IDs
   const genId = (suffix: string) => `env-${room.id}-${suffix}`;
 
   if (room.shape_type === 'triangular_prism') {
@@ -478,7 +471,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 270,
-        tilt: pitchAngle
+        tilt: pitchAngle,
+        parent_face: 'top'
       },
       {
         id: genId('roof-right'),
@@ -490,7 +484,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 90,
-        tilt: pitchAngle
+        tilt: pitchAngle,
+        parent_face: 'top'
       },
       {
         id: genId('gable-front'),
@@ -502,7 +497,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 0,
-        tilt: 90
+        tilt: 90,
+        parent_face: 'front'
       },
       {
         id: genId('gable-back'),
@@ -514,7 +510,8 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.05,
         room_id: room.id,
         relative_angle: 180,
-        tilt: 90
+        tilt: 90,
+        parent_face: 'back'
       },
       {
         id: genId('base-floor'),
@@ -526,12 +523,12 @@ export function generateRoomBoundarySurfaces(
         delta_u_tb: 0.02,
         room_id: room.id,
         relative_angle: 0,
-        tilt: 0
+        tilt: 0,
+        parent_face: 'bottom'
       }
     ];
   }
 
-  // Standard Box Geometry (6 Faces)
   const wallFrontArea = Math.round(w * h * 100) / 100;
   const wallSideArea = Math.round(l * h * 100) / 100;
   const floorCeilingArea = Math.round(w * l * 100) / 100;
@@ -547,7 +544,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 0,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'front'
     },
     {
       id: genId('wall-right'),
@@ -559,7 +557,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 90,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'right'
     },
     {
       id: genId('wall-back'),
@@ -571,7 +570,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 180,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'back'
     },
     {
       id: genId('wall-left'),
@@ -583,7 +583,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 270,
-      tilt: 90
+      tilt: 90,
+      parent_face: 'left'
     },
     {
       id: genId('roof-ceiling'),
@@ -595,7 +596,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.05,
       room_id: room.id,
       relative_angle: 0,
-      tilt: 0
+      tilt: 0,
+      parent_face: 'top'
     },
     {
       id: genId('floor-ground'),
@@ -607,7 +609,8 @@ export function generateRoomBoundarySurfaces(
       delta_u_tb: 0.02,
       room_id: room.id,
       relative_angle: 0,
-      tilt: 0
+      tilt: 0,
+      parent_face: 'bottom'
     }
   ];
 }

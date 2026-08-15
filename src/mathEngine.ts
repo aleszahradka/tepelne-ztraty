@@ -57,7 +57,7 @@ export function calculateChildOpeningsArea(
 ): number {
   return elements
     .filter(e => e.parent_element_id === parentElementId)
-    .reduce((sum, child) => sum + child.area, 0);
+    .reduce((sum, child) => sum + child.area * Math.max(1, child.count || 1), 0);
 }
 
 /**
@@ -73,7 +73,8 @@ export function calculateNetArea(
     return calculateAdjustedNetArea(element, elements, rooms, storeys);
   }
   const childOpeningsArea = calculateChildOpeningsArea(element.id, elements);
-  return element.area - childOpeningsArea;
+  const totalElementArea = element.area * Math.max(1, element.count || 1);
+  return totalElementArea - childOpeningsArea;
 }
 
 /**
