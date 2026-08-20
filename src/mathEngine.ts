@@ -111,8 +111,13 @@ export function calculateTransmissionLoss(
     }
   }
 
+  const assembly = assemblies.find(a => a.id === element.assembly_id);
+  const isGround = element.adjacent_space_type === 'ground' || assembly?.type === 'floor';
+  const groundTemp = assembly?.t_ground ?? settings.t_ground ?? 5;
+  const externalTemp = isGround ? groundTemp : settings.t_e;
+
   // 1. External Net Transmission Loss
-  const deltaT = indoorTemp - settings.t_e;
+  const deltaT = indoorTemp - externalTemp;
   const netArea = calculateNetArea(element, allElements, rooms, storeys);
   let loss = netArea * uEffective * deltaT * element.b_factor;
 

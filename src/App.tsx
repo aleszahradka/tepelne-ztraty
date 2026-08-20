@@ -17,7 +17,7 @@ function App() {
       <Header />
 
       {/* Main Full-Width Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-8">
 
         {/* Real-time Dashboard Summary Statistics */}
         <section id="results-dashboard">
@@ -59,7 +59,7 @@ function App() {
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 text-center py-6 border-t border-slate-800 text-xs mt-12">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>© {new Date().getFullYear()} {t.footer.text}</p>
           <div className="flex gap-4">
             <span className="hover:text-white transition-colors cursor-pointer">{t.footer.method}</span>

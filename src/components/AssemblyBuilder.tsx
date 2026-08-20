@@ -33,6 +33,7 @@ export const AssemblyBuilder: React.FC = () => {
     let rsi = 0.13;
     let rse = 0.04;
     let direct_u_value: number | undefined = undefined;
+    let t_ground: number | undefined = undefined;
 
     if (newType === 'roof') {
       rsi = 0.10;
@@ -40,6 +41,7 @@ export const AssemblyBuilder: React.FC = () => {
     } else if (newType === 'floor') {
       rsi = 0.17;
       rse = 0.00;
+      t_ground = 5;
     } else if (newType === 'window') {
       rsi = 0.13;
       rse = 0.04;
@@ -57,7 +59,8 @@ export const AssemblyBuilder: React.FC = () => {
       rsi,
       rse,
       layers: [],
-      direct_u_value
+      direct_u_value,
+      t_ground
     };
 
     addAssembly(newAssembly);
@@ -258,6 +261,28 @@ export const AssemblyBuilder: React.FC = () => {
                           onChange={(e) => updateAssembly(assembly.id, { direct_u_value: parseFloat(e.target.value) || 0 })}
                           className="w-full px-2 py-1 border border-indigo-200 bg-indigo-50/50 text-indigo-800 rounded font-mono text-xs font-bold focus:ring-indigo-500"
                         />
+                      </div>
+                    )}
+
+                    {/* Ground Temperature Input (for floor-on-ground type) */}
+                    {assembly.type === 'floor' && (
+                      <div className="col-span-2">
+                        <label className="block text-[10px] font-bold text-emerald-700 mb-1">
+                          {t.assemblies.groundTemp} (t_g)
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={assembly.t_ground ?? 5}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              updateAssembly(assembly.id, { t_ground: isNaN(val) ? 5 : val });
+                            }}
+                            className="w-full px-2 py-1 border border-emerald-200 bg-emerald-50/50 text-emerald-800 rounded font-mono text-xs font-bold focus:ring-emerald-500"
+                          />
+                          <span className="text-xs text-emerald-700 font-bold shrink-0">°C</span>
+                        </div>
                       </div>
                     )}
                   </div>

@@ -14,8 +14,8 @@ export const en: Translations = {
     totalLoss: "Total Heat Loss (Φ_Total)",
     kW: "kW",
     tempDiff: "At design temperature difference of",
-    transmission: "Transmission",
-    ventilation: "Ventilation",
+    transmission: "Transmission Loss",
+    ventilation: "Ventilation Loss",
     avgU: "Avg. Envelope U-Value",
     avgUDesc: "Mean insulation rating of envelope surfaces. Lower is better.",
     totalArea: "Total Envelope Area",
@@ -25,7 +25,10 @@ export const en: Translations = {
     ratioDesc: "Highly sealed structures reduce ventilation ratios but require standard air-flow controls.",
     distributionTitle: "Heat Loss Distribution Profile",
     distributionDesc: "Visual profile showing which envelope surfaces lose the most energy. Use this breakdown to prioritize insulation additions or triple-glazing.",
-    ventilationAirflow: "Ventilation Loss (Airflow exchange)"
+    ventilationAirflow: "Ventilation Loss (Airflow exchange)",
+    heatLossByRoom: "Heat Loss by Room",
+    byElements: "By Elements",
+    unassignedElements: "Unassigned Envelope Elements"
   },
   hierarchy: {
     title: "Building Hierarchy (Storeys & Rooms)",
@@ -119,6 +122,7 @@ export const en: Translations = {
     assemblyName: "Assembly Name",
     constType: "Construction Type",
     addAssemblyBtn: "Add Assembly",
+    groundTemp: "Ground Temperature (°C)",
     types: {
       wall: "External Wall",
       roof: "Roof / Ceiling",
