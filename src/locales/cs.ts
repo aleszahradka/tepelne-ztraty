@@ -26,7 +26,10 @@ export const cs = {
     ventilationAirflow: "Ztráta větráním (výměna vzduchu)",
     heatLossByRoom: "Ztráta po místnostech",
     byElements: "Dle prvků",
-    unassignedElements: "Nepřiřazené prvky obálky"
+    unassignedElements: "Nepřiřazené prvky obálky",
+    filterBoth: "Prostup i větrání",
+    filterTransmission: "Pouze prostup",
+    filterVentilation: "Pouze větrání"
   },
   hierarchy: {
     title: "Hierarchie budovy (Podlaží a místnosti)",
@@ -66,7 +69,9 @@ export const cs = {
     tableHeaderAirExchange: "n (1/h)",
     tableHeaderPhiT: "Φ_T (W)",
     tableHeaderPhiV: "Φ_V (W)",
-    tableHeaderTotal: "Φ_celk (W)"
+    tableHeaderTotal: "Φ_celk (W)",
+    hasHRV: "Využívá rekuperaci",
+    hrvEfficiency: "Účinnost rekuperace (0.0 - 1.0)"
   },
   environmental: {
     title: "Teploty a větrání",

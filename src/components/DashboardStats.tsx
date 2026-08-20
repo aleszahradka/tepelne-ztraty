@@ -4,7 +4,8 @@ import {
   calculateTransmissionLoss,
   calculateEffectiveUValue,
   calculateTotalBuildingTransmissionLoss,
-  calculateTotalBuildingVentilationLoss
+  calculateTotalBuildingVentilationLoss,
+  calculateRoomVentilationLoss
 } from '../mathEngine';
 import { Flame, Layers, TrendingDown, Filter } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
@@ -20,6 +21,9 @@ export const DashboardStats: React.FC = () => {
 
   // View mode for distribution panel ('elements' | 'rooms')
   const [viewMode, setViewMode] = useState<'elements' | 'rooms'>('elements');
+
+  // Breakdown filter mode ('both' | 'transmission' | 'ventilation')
+  const [breakdownFilter, setBreakdownFilter] = useState<'both' | 'transmission' | 'ventilation'>('both');
 
   // Filter state for distribution chart
   const [selectedStoreyId, setSelectedStoreyId] = useState<string>('all');
@@ -70,36 +74,60 @@ export const DashboardStats: React.FC = () => {
   // Sorting elements by their heat loss (highest leak first)
   const sortedLeaks = [...transmissionLosses].sort((a, b) => b.loss - a.loss);
 
-  // Room Heat Loss Aggregation (sum of transmission losses of surfaces linked to room_id)
+  // Room Heat Loss Aggregation (Transmission and Ventilation losses per room)
   const roomBreakdown = rooms.map((room) => {
     const roomElements = elements.filter((el) => el.room_id === room.id);
     const roomPhiT = roomElements.reduce((sum, el) => {
       return sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys);
     }, 0);
-    const roomSharePct = totalTransmission > 0 ? (roomPhiT / totalTransmission) * 100 : 0;
+    const roomPhiV = calculateRoomVentilationLoss(room, settings.t_e);
+
+    let displayLoss = roomPhiT + roomPhiV;
+    let totalCompLoss = totalLoss;
+    if (breakdownFilter === 'transmission') {
+      displayLoss = roomPhiT;
+      totalCompLoss = totalTransmission;
+    } else if (breakdownFilter === 'ventilation') {
+      displayLoss = roomPhiV;
+      totalCompLoss = totalVentilation;
+    }
+
+    const roomSharePct = totalCompLoss > 0 ? (displayLoss / totalCompLoss) * 100 : 0;
     const storeyName = storeys.find((s) => s.id === room.storey_id)?.name;
     return {
       room,
       storeyName,
       phiT: roomPhiT,
+      phiV: roomPhiV,
+      displayLoss,
       sharePct: roomSharePct,
       elementCount: roomElements.length
     };
-  }).sort((a, b) => b.phiT - a.phiT);
+  }).sort((a, b) => b.displayLoss - a.displayLoss);
 
   // Unassigned elements transmission loss aggregation
   const unassignedElements = elements.filter((el) => !el.room_id);
   const unassignedPhiT = unassignedElements.reduce((sum, el) => {
     return sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys);
   }, 0);
-  const unassignedSharePct = totalTransmission > 0 ? (unassignedPhiT / totalTransmission) * 100 : 0;
+
+  let unassignedDisplayLoss = unassignedPhiT;
+  let unassignedCompLoss = totalLoss;
+  if (breakdownFilter === 'transmission') {
+    unassignedDisplayLoss = unassignedPhiT;
+    unassignedCompLoss = totalTransmission;
+  } else if (breakdownFilter === 'ventilation') {
+    unassignedDisplayLoss = 0;
+    unassignedCompLoss = totalVentilation;
+  }
+  const unassignedSharePct = unassignedCompLoss > 0 ? (unassignedDisplayLoss / unassignedCompLoss) * 100 : 0;
 
   return (
     <div className="space-y-6">
       {/* 1. Large High-Impact Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Total Heat Loss Summary Card */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-850 text-white rounded-2xl shadow-xl p-6 relative overflow-hidden border border-slate-800">
+        {/* Total Heat Loss Summary Card with Darker Background for Legibility */}
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white rounded-2xl shadow-2xl p-6 relative overflow-hidden border border-slate-800">
           <div className="absolute right-[-10px] bottom-[-10px] opacity-10">
             <Flame className="w-40 h-40" />
           </div>
@@ -338,6 +366,43 @@ export const DashboardStats: React.FC = () => {
         ) : (
           /* Room Heat Loss View Mode */
           <div className="space-y-4">
+            {/* Filter Mode Toggle Bar for Transmission / Ventilation / Both */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs mb-4 w-fit">
+              <button
+                type="button"
+                onClick={() => setBreakdownFilter('both')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  breakdownFilter === 'both'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.dashboard.filterBoth}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBreakdownFilter('transmission')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  breakdownFilter === 'transmission'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.dashboard.filterTransmission}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBreakdownFilter('ventilation')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  breakdownFilter === 'ventilation'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.dashboard.filterVentilation}
+              </button>
+            </div>
+
             {roomBreakdown.map((item, idx) => (
               <div key={item.room.id} className="space-y-1">
                 <div className="flex justify-between items-center text-xs">
@@ -349,9 +414,14 @@ export const DashboardStats: React.FC = () => {
                         {item.storeyName}
                       </span>
                     )}
+                    {item.room.has_hrv && (
+                      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-100">
+                        HRV {((item.room.hrv_efficiency ?? 0.8) * 100).toFixed(0)}%
+                      </span>
+                    )}
                   </div>
                   <div className="font-mono font-black text-slate-800">
-                    {item.phiT.toFixed(0)} W <span className="text-slate-500 font-bold text-[11px]">({(item.phiT / 1000).toFixed(2)} kW)</span> <span className="text-indigo-600 font-extrabold text-[11px]">({item.sharePct.toFixed(1)}%)</span>
+                    {item.displayLoss.toFixed(0)} W <span className="text-slate-500 font-bold text-[11px]">({(item.displayLoss / 1000).toFixed(2)} kW)</span> <span className="text-indigo-600 font-extrabold text-[11px]">({item.sharePct.toFixed(1)}%)</span>
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
@@ -363,7 +433,7 @@ export const DashboardStats: React.FC = () => {
               </div>
             ))}
 
-            {unassignedElements.length > 0 && (
+            {unassignedElements.length > 0 && breakdownFilter !== 'ventilation' && (
               <div className="space-y-1 pt-2 border-t border-slate-100">
                 <div className="flex justify-between items-center text-xs">
                   <div className="flex items-center gap-2">
@@ -371,7 +441,7 @@ export const DashboardStats: React.FC = () => {
                     <span className="font-bold text-slate-600 italic">{t.dashboard.unassignedElements}</span>
                   </div>
                   <div className="font-mono font-black text-slate-700">
-                    {unassignedPhiT.toFixed(0)} W <span className="text-slate-500 font-normal text-[10px]">({(unassignedPhiT / 1000).toFixed(2)} kW)</span> <span className="text-slate-500 font-bold text-[10px]">({unassignedSharePct.toFixed(1)}%)</span>
+                    {unassignedDisplayLoss.toFixed(0)} W <span className="text-slate-500 font-normal text-[10px]">({(unassignedDisplayLoss / 1000).toFixed(2)} kW)</span> <span className="text-slate-500 font-bold text-[10px]">({unassignedSharePct.toFixed(1)}%)</span>
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">

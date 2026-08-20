@@ -28,7 +28,10 @@ export const en: Translations = {
     ventilationAirflow: "Ventilation Loss (Airflow exchange)",
     heatLossByRoom: "Heat Loss by Room",
     byElements: "By Elements",
-    unassignedElements: "Unassigned Envelope Elements"
+    unassignedElements: "Unassigned Envelope Elements",
+    filterBoth: "Both Transmission & Ventilation",
+    filterTransmission: "Transmission Only",
+    filterVentilation: "Ventilation Only"
   },
   hierarchy: {
     title: "Building Hierarchy (Storeys & Rooms)",
@@ -68,7 +71,9 @@ export const en: Translations = {
     tableHeaderAirExchange: "n (1/h)",
     tableHeaderPhiT: "Φ_T (W)",
     tableHeaderPhiV: "Φ_V (W)",
-    tableHeaderTotal: "Φ_Total (W)"
+    tableHeaderTotal: "Φ_Total (W)",
+    hasHRV: "Use Heat Recovery (HRV)",
+    hrvEfficiency: "Recuperation Efficiency (0.0 - 1.0)"
   },
   environmental: {
     title: "Temperatures & Ventilation",

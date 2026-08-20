@@ -46,6 +46,8 @@ export interface Room {
   shape_type?: 'box' | 'triangular_prism' | 'trapezoidal_prism'; // 3D geometry shape
   pitch_angle?: number; // Roof slope pitch angle in degrees (e.g., 35)
   eave_height?: number; // Eave height for trapezoidal/shed roofs
+  has_hrv?: boolean; // True if room uses Heat Recovery Ventilation (Rekuperace)
+  hrv_efficiency?: number; // HRV efficiency eta (0.0 to 0.99, default 0.80)
 }
 
 export interface EnvelopeElement {
