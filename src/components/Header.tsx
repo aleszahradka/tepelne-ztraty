@@ -77,7 +77,7 @@ export const Header: React.FC = () => {
 
   return (
     <header className="bg-white border-b border-slate-100 py-4 px-6 md:px-8 shadow-sm">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Logo and Titles */}
         <div className="flex items-center gap-3">
           <div className="bg-red-500 text-white p-2 rounded-xl shadow-md">

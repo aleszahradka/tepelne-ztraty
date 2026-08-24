@@ -35,6 +35,8 @@ export const RoomManager: React.FC = () => {
   const [newRoomHeight, setNewRoomHeight] = useState<number>(2.7);
   const [newRoomTInt, setNewRoomTInt] = useState<number>(20);
   const [newRoomAirExchange, setNewRoomAirExchange] = useState<number>(0.5);
+  const [newRoomHasHRV, setNewRoomHasHRV] = useState<boolean>(false);
+  const [newRoomHRVEfficiency, setNewRoomHRVEfficiency] = useState<number>(0.80);
 
   const handleWidthChange = (val: number | '') => {
     setNewRoomWidth(val);
@@ -92,6 +94,8 @@ export const RoomManager: React.FC = () => {
       height: Math.max(1, newRoomHeight),
       t_int: newRoomTInt,
       air_exchange_rate: Math.max(0, newRoomAirExchange),
+      has_hrv: newRoomHasHRV,
+      hrv_efficiency: newRoomHRVEfficiency,
       pos_x: posX,
       pos_y: posY
     };
@@ -299,6 +303,35 @@ export const RoomManager: React.FC = () => {
               </div>
             </div>
 
+            {/* HRV Control Bar */}
+            <div className="flex flex-wrap items-center gap-4 bg-white p-2.5 rounded-md border border-slate-200 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 select-none">
+                <input
+                  type="checkbox"
+                  checked={newRoomHasHRV}
+                  onChange={(e) => setNewRoomHasHRV(e.target.checked)}
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span>{t.hierarchy.hasHRV}</span>
+              </label>
+
+              {newRoomHasHRV && (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-medium">{t.hierarchy.hrvEfficiency}:</span>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="0.99"
+                    value={newRoomHRVEfficiency}
+                    onChange={(e) => setNewRoomHRVEfficiency(Math.min(0.99, Math.max(0, parseFloat(e.target.value) || 0)))}
+                    className="w-16 px-2 py-1 border border-slate-200 rounded font-mono font-bold text-indigo-600 bg-slate-50"
+                  />
+                  <span className="text-slate-400 font-mono">({(newRoomHRVEfficiency * 100).toFixed(0)}%)</span>
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
               className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-colors mt-2"
@@ -458,19 +491,44 @@ export const RoomManager: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Air exchange n */}
+                    {/* Air exchange n & HRV */}
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1 font-mono text-xs">
-                        <Wind className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          value={room.air_exchange_rate}
-                          onChange={(e) => updateRoom(room.id, { air_exchange_rate: Math.max(0, parseFloat(e.target.value) || 0) })}
-                          className="w-12 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-center font-bold text-slate-700"
-                        />
-                        <span className="text-slate-400">1/h</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="inline-flex items-center gap-1 font-mono text-xs">
+                          <Wind className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={room.air_exchange_rate}
+                            onChange={(e) => updateRoom(room.id, { air_exchange_rate: Math.max(0, parseFloat(e.target.value) || 0) })}
+                            className="w-12 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-center font-bold text-slate-700"
+                          />
+                          <span className="text-slate-400">1/h</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px]">
+                          <label className="flex items-center gap-1 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={room.has_hrv ?? false}
+                              onChange={(e) => updateRoom(room.id, { has_hrv: e.target.checked })}
+                              className="w-3 h-3 rounded text-indigo-600 cursor-pointer"
+                            />
+                            <span className="text-slate-500 font-medium">HRV</span>
+                          </label>
+                          {room.has_hrv && (
+                            <input
+                              type="number"
+                              step="0.05"
+                              min="0"
+                              max="0.99"
+                              value={room.hrv_efficiency ?? 0.80}
+                              onChange={(e) => updateRoom(room.id, { hrv_efficiency: Math.min(0.99, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                              className="w-12 px-1 py-0.2 bg-white border border-slate-200 rounded text-center font-bold font-mono text-indigo-600 text-[10px]"
+                              title={t.hierarchy.hrvEfficiency}
+                            />
+                          )}
+                        </div>
                       </div>
                     </td>
 

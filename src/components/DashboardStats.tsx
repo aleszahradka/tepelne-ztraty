@@ -4,7 +4,8 @@ import {
   calculateTransmissionLoss,
   calculateEffectiveUValue,
   calculateTotalBuildingTransmissionLoss,
-  calculateTotalBuildingVentilationLoss
+  calculateTotalBuildingVentilationLoss,
+  calculateRoomVentilationLoss
 } from '../mathEngine';
 import { Flame, Layers, TrendingDown, Filter } from 'lucide-react';
 import { useTranslate } from '../hooks/useTranslate';
@@ -17,6 +18,12 @@ export const DashboardStats: React.FC = () => {
   const settings = useHeatLossStore((state) => state.environmental_settings);
   const rooms = useHeatLossStore((state) => state.rooms);
   const storeys = useHeatLossStore((state) => state.storeys);
+
+  // View mode for distribution panel ('elements' | 'rooms')
+  const [viewMode, setViewMode] = useState<'elements' | 'rooms'>('elements');
+
+  // Breakdown filter mode ('both' | 'transmission' | 'ventilation')
+  const [breakdownFilter, setBreakdownFilter] = useState<'both' | 'transmission' | 'ventilation'>('both');
 
   // Filter state for distribution chart
   const [selectedStoreyId, setSelectedStoreyId] = useState<string>('all');
@@ -41,12 +48,12 @@ export const DashboardStats: React.FC = () => {
   const transmissionLosses = filteredElements.map((el) => ({
     id: el.id,
     name: el.name,
-    loss: calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms),
+    loss: calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys),
     area: el.area,
     uEff: calculateEffectiveUValue(el, assemblies, materials)
   }));
 
-  const totalTransmission = calculateTotalBuildingTransmissionLoss(elements, assemblies, materials, settings, rooms);
+  const totalTransmission = calculateTotalBuildingTransmissionLoss(elements, assemblies, materials, settings, rooms, storeys);
   const totalVentilation = calculateTotalBuildingVentilationLoss(rooms, settings);
   const totalLoss = totalTransmission + totalVentilation;
 
@@ -67,34 +74,96 @@ export const DashboardStats: React.FC = () => {
   // Sorting elements by their heat loss (highest leak first)
   const sortedLeaks = [...transmissionLosses].sort((a, b) => b.loss - a.loss);
 
+  // Room Heat Loss Aggregation (Transmission and Ventilation losses per room)
+  const roomBreakdown = rooms.map((room) => {
+    const roomElements = elements.filter((el) => el.room_id === room.id);
+    const roomPhiT = roomElements.reduce((sum, el) => {
+      return sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys);
+    }, 0);
+    const roomPhiV = calculateRoomVentilationLoss(room, settings.t_e);
+
+    let displayLoss = roomPhiT + roomPhiV;
+    let totalCompLoss = totalLoss;
+    if (breakdownFilter === 'transmission') {
+      displayLoss = roomPhiT;
+      totalCompLoss = totalTransmission;
+    } else if (breakdownFilter === 'ventilation') {
+      displayLoss = roomPhiV;
+      totalCompLoss = totalVentilation;
+    }
+
+    const roomSharePct = totalCompLoss > 0 ? (displayLoss / totalCompLoss) * 100 : 0;
+    const storeyName = storeys.find((s) => s.id === room.storey_id)?.name;
+    return {
+      room,
+      storeyName,
+      phiT: roomPhiT,
+      phiV: roomPhiV,
+      displayLoss,
+      sharePct: roomSharePct,
+      elementCount: roomElements.length
+    };
+  }).sort((a, b) => b.displayLoss - a.displayLoss);
+
+  // Unassigned elements transmission loss aggregation
+  const unassignedElements = elements.filter((el) => !el.room_id);
+  const unassignedPhiT = unassignedElements.reduce((sum, el) => {
+    return sum + calculateTransmissionLoss(el, assemblies, materials, settings, elements, rooms, storeys);
+  }, 0);
+
+  let unassignedDisplayLoss = unassignedPhiT;
+  let unassignedCompLoss = totalLoss;
+  if (breakdownFilter === 'transmission') {
+    unassignedDisplayLoss = unassignedPhiT;
+    unassignedCompLoss = totalTransmission;
+  } else if (breakdownFilter === 'ventilation') {
+    unassignedDisplayLoss = 0;
+    unassignedCompLoss = totalVentilation;
+  }
+  const unassignedSharePct = unassignedCompLoss > 0 ? (unassignedDisplayLoss / unassignedCompLoss) * 100 : 0;
+
   return (
     <div className="space-y-6">
       {/* 1. Large High-Impact Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Total Heat Loss */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-850 text-white rounded-2xl shadow-xl p-6 relative overflow-hidden border border-slate-800">
+        {/* Total Heat Loss Summary Card with Darker Background for Legibility */}
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white rounded-2xl shadow-2xl p-6 relative overflow-hidden border border-slate-800">
           <div className="absolute right-[-10px] bottom-[-10px] opacity-10">
             <Flame className="w-40 h-40" />
           </div>
           <div className="flex justify-between items-start mb-3">
             <div>
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
                 {t.dashboard.totalLoss}
               </span>
-              <h3 className="text-4xl font-black mt-1 font-mono">
-                {(totalLoss / 1000).toFixed(2)} <span className="text-xl font-medium">{t.dashboard.kW}</span>
+              <h3 className="text-4xl md:text-5xl font-black mt-1 font-mono text-white">
+                {(totalLoss / 1000).toFixed(2)} <span className="text-xl font-medium text-slate-200">{t.dashboard.kW}</span>
               </h3>
             </div>
             <div className="bg-red-500/20 p-2.5 rounded-xl border border-red-500/30">
               <Flame className="text-red-500 w-6 h-6 animate-pulse" />
             </div>
           </div>
-          <p className="text-xs text-slate-400 font-medium">
+          <p className="text-xs text-slate-300 font-medium">
             {t.dashboard.tempDiff} {settings.t_int - settings.t_e} K
           </p>
-          <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between text-xs text-slate-400 font-semibold">
-            <span>{t.dashboard.transmission}: {(totalTransmission / 1000).toFixed(2)} kW</span>
-            <span>{t.dashboard.ventilation}: {(totalVentilation / 1000).toFixed(2)} kW</span>
+          <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-2 gap-3">
+            <div>
+              <span className="text-xs font-bold text-white block">
+                {t.dashboard.transmission} (Φ_T):
+              </span>
+              <span className="text-lg font-black text-white font-mono block mt-0.5">
+                {(totalTransmission / 1000).toFixed(2)} kW
+              </span>
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block">
+                {t.dashboard.ventilation} (Φ_V):
+              </span>
+              <span className="text-lg font-black text-white font-mono block mt-0.5">
+                {(totalVentilation / 1000).toFixed(2)} kW
+              </span>
+            </div>
           </div>
         </div>
 
@@ -168,101 +237,229 @@ export const DashboardStats: React.FC = () => {
       {/* 2. Visual Ranking of Envelope Leak Points with Storey & Room Filters */}
       <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <TrendingDown className="text-amber-500 w-5 h-5" />
-            <h3 className="text-lg font-bold text-slate-800">{t.dashboard.distributionTitle}</h3>
-          </div>
-
-          {/* Storey & Room Filter Bar */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-              <Filter className="w-3.5 h-3.5 text-indigo-600" />
-              <select
-                value={selectedStoreyId}
-                onChange={(e) => setSelectedStoreyId(e.target.value)}
-                className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
-              >
-                <option value="all">Všechna podlaží</option>
-                {storeys.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <TrendingDown className="text-amber-500 w-5 h-5" />
+              <h3 className="text-lg font-bold text-slate-800">{t.dashboard.distributionTitle}</h3>
             </div>
 
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-              <Filter className="w-3.5 h-3.5 text-indigo-600" />
-              <select
-                value={selectedRoomId}
-                onChange={(e) => setSelectedRoomId(e.target.value)}
-                className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
+            {/* View Switcher: By Elements vs Heat Loss by Room */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('elements')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  viewMode === 'elements'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                <option value="all">Všechny místnosti</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-                <option value="unassigned">Nezařazené</option>
-              </select>
+                {t.dashboard.byElements}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('rooms')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  viewMode === 'rooms'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.dashboard.heatLossByRoom}
+              </button>
             </div>
           </div>
+
+          {/* Storey & Room Filter Bar (visible in 'elements' view mode) */}
+          {viewMode === 'elements' && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                <Filter className="w-3.5 h-3.5 text-indigo-600" />
+                <select
+                  value={selectedStoreyId}
+                  onChange={(e) => setSelectedStoreyId(e.target.value)}
+                  className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
+                >
+                  <option value="all">Všechna podlaží</option>
+                  {storeys.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                <Filter className="w-3.5 h-3.5 text-indigo-600" />
+                <select
+                  value={selectedRoomId}
+                  onChange={(e) => setSelectedRoomId(e.target.value)}
+                  className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
+                >
+                  <option value="all">Všechny místnosti</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                  <option value="unassigned">Nezařazené</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <p className="text-slate-500 text-sm mb-6">
           {t.dashboard.distributionDesc}
         </p>
 
-        <div className="space-y-4">
-          {sortedLeaks.map((item, idx) => {
-            const itemPct = totalLoss > 0 ? (item.loss / totalLoss) * 100 : 0;
-            return (
-              <div key={item.id} className="space-y-1">
+        {viewMode === 'elements' ? (
+          <div className="space-y-4">
+            {sortedLeaks.map((item, idx) => {
+              const itemPct = totalLoss > 0 ? (item.loss / totalLoss) * 100 : 0;
+              return (
+                <div key={item.id} className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 font-mono font-bold w-5">#{idx + 1}</span>
+                      <span className="font-bold text-slate-700">{item.name}</span>
+                      <span className="text-slate-400 text-[10px]">
+                        ({item.area} m² @ U={item.uEff.toFixed(2)})
+                      </span>
+                    </div>
+                    <div className="font-mono font-black text-slate-800 font-mono">
+                      {item.loss.toFixed(0)} W <span className="text-slate-400 font-normal text-[10px]">({itemPct.toFixed(1)}%)</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-amber-500 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${itemPct}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {totalVentilation > 0 && selectedRoomId === 'all' && selectedStoreyId === 'all' && (
+              <div className="space-y-1">
                 <div className="flex justify-between items-center text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-400 font-mono font-bold w-5">#{idx + 1}</span>
-                    <span className="font-bold text-slate-700">{item.name}</span>
-                    <span className="text-slate-400 text-[10px]">
-                      ({item.area} m² @ U={item.uEff.toFixed(2)})
-                    </span>
+                    <span className="text-slate-400 font-mono font-bold w-5">#V</span>
+                    <span className="font-bold text-slate-700">{t.dashboard.ventilationAirflow}</span>
                   </div>
                   <div className="font-mono font-black text-slate-800 font-mono">
-                    {item.loss.toFixed(0)} W <span className="text-slate-400 font-normal text-[10px]">({itemPct.toFixed(1)}%)</span>
+                    {totalVentilation.toFixed(0)} W <span className="text-slate-400 font-normal text-[10px]">({(totalVentilation/totalLoss * 100).toFixed(1)}%)</span>
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
                   <div
-                    className="bg-amber-500 h-full rounded-full transition-all duration-300"
-                    style={{ width: `${itemPct}%` }}
+                    className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${totalVentilation/totalLoss * 100}%` }}
                   ></div>
                 </div>
               </div>
-            );
-          })}
+            )}
 
-          {totalVentilation > 0 && selectedRoomId === 'all' && selectedStoreyId === 'all' && (
-            <div className="space-y-1">
-              <div className="flex justify-between items-center text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400 font-mono font-bold w-5">#V</span>
-                  <span className="font-bold text-slate-700">{t.dashboard.ventilationAirflow}</span>
+            {filteredElements.length === 0 && (
+              <div className="text-center p-6 text-slate-400 text-sm">
+                Žádné prvky neodpovídají zvolenému filtru podlaží / místnosti.
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Room Heat Loss View Mode */
+          <div className="space-y-4">
+            {/* Filter Mode Toggle Bar for Transmission / Ventilation / Both */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs mb-4 w-fit">
+              <button
+                type="button"
+                onClick={() => setBreakdownFilter('both')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  breakdownFilter === 'both'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.dashboard.filterBoth}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBreakdownFilter('transmission')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  breakdownFilter === 'transmission'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.dashboard.filterTransmission}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBreakdownFilter('ventilation')}
+                className={`px-3 py-1 font-bold rounded transition-colors ${
+                  breakdownFilter === 'ventilation'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.dashboard.filterVentilation}
+              </button>
+            </div>
+
+            {roomBreakdown.map((item, idx) => (
+              <div key={item.room.id} className="space-y-1">
+                <div className="flex justify-between items-center text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-indigo-500 font-mono font-bold w-5">#{idx + 1}</span>
+                    <span className="font-bold text-slate-800">{item.room.name}</span>
+                    {item.storeyName && (
+                      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-100">
+                        {item.storeyName}
+                      </span>
+                    )}
+                    {item.room.has_hrv && (
+                      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-100">
+                        HRV {((item.room.hrv_efficiency ?? 0.8) * 100).toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-mono font-black text-slate-800">
+                    {item.displayLoss.toFixed(0)} W <span className="text-slate-500 font-bold text-[11px]">({(item.displayLoss / 1000).toFixed(2)} kW)</span> <span className="text-indigo-600 font-extrabold text-[11px]">({item.sharePct.toFixed(1)}%)</span>
+                  </div>
                 </div>
-                <div className="font-mono font-black text-slate-800 font-mono">
-                  {totalVentilation.toFixed(0)} W <span className="text-slate-400 font-normal text-[10px]">({(totalVentilation/totalLoss * 100).toFixed(1)}%)</span>
+                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${item.sharePct}%` }}
+                  ></div>
                 </div>
               </div>
-              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-blue-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${totalVentilation/totalLoss * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
+            ))}
 
-          {filteredElements.length === 0 && (
-            <div className="text-center p-6 text-slate-400 text-sm">
-              Žádné prvky neodpovídají zvolenému filtru podlaží / místnosti.
-            </div>
-          )}
-        </div>
+            {unassignedElements.length > 0 && breakdownFilter !== 'ventilation' && (
+              <div className="space-y-1 pt-2 border-t border-slate-100">
+                <div className="flex justify-between items-center text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 font-mono font-bold w-5">#?</span>
+                    <span className="font-bold text-slate-600 italic">{t.dashboard.unassignedElements}</span>
+                  </div>
+                  <div className="font-mono font-black text-slate-700">
+                    {unassignedDisplayLoss.toFixed(0)} W <span className="text-slate-500 font-normal text-[10px]">({(unassignedDisplayLoss / 1000).toFixed(2)} kW)</span> <span className="text-slate-500 font-bold text-[10px]">({unassignedSharePct.toFixed(1)}%)</span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-slate-400 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${unassignedSharePct}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {rooms.length === 0 && unassignedElements.length === 0 && (
+              <div className="text-center p-6 text-slate-400 text-sm">
+                Zatím nebyly vytvořeny žádné místnosti ani prvky obálky.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

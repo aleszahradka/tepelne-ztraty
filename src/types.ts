@@ -20,6 +20,7 @@ export interface Assembly {
   rse: number; // External surface thermal resistance in (m²K)/W
   layers: Layer[];
   direct_u_value?: number; // Optional direct override (for windows and doors)
+  t_ground?: number; // Ground temperature in °C (for floor-on-ground construction, default 5°C)
 }
 
 export type AdjacentSpaceType = 'exterior' | 'ground' | 'unheated' | 'custom';
@@ -45,6 +46,8 @@ export interface Room {
   shape_type?: 'box' | 'triangular_prism' | 'trapezoidal_prism'; // 3D geometry shape
   pitch_angle?: number; // Roof slope pitch angle in degrees (e.g., 35)
   eave_height?: number; // Eave height for trapezoidal/shed roofs
+  has_hrv?: boolean; // True if room uses Heat Recovery Ventilation (Rekuperace)
+  hrv_efficiency?: number; // HRV efficiency eta (0.0 to 0.99, default 0.80)
 }
 
 export interface EnvelopeElement {
@@ -72,6 +75,7 @@ export interface EnvelopeElement {
 export interface EnvironmentalSettings {
   t_int: number; // Global indoor design temperature (°C)
   t_e: number; // Outdoor design temperature (°C)
+  t_ground?: number; // Ground temperature t_g (°C), default 5°C
   room_volume: number; // Building/room volume in m³
   air_exchange_rate: number; // n in 1/h (air changes per hour)
   building_orientation: number; // Building North Orientation "Severka" (0° to 360°, where 0° = North, 90° = East, 180° = South, 270° = West). Default 0

@@ -12,8 +12,8 @@ export const cs = {
     totalLoss: "Celková tepelná ztráta (Φ_celk)",
     kW: "kW",
     tempDiff: "Při návrhovém teplotním rozdílu",
-    transmission: "Prostupem",
-    ventilation: "Větráním",
+    transmission: "Ztráta prostupem",
+    ventilation: "Ztráta větráním",
     avgU: "Průměrné U obálky",
     avgUDesc: "Průměrný součinitel prostupu tepla konstrukcí obálky. Čím nižší, tím lepší.",
     totalArea: "Celková plocha obálky",
@@ -23,7 +23,13 @@ export const cs = {
     ratioDesc: "Dobře utěsněné domy snižují poměr ztrát větráním, vyžadují ale řízené větrání.",
     distributionTitle: "Rozdělení tepelných ztrát obálkou",
     distributionDesc: "Grafické rozdělení ztrát podle jednotlivých ploch obálky. Použijte pro prioritizaci dodatečného zateplení nebo trojskel.",
-    ventilationAirflow: "Ztráta větráním (výměna vzduchu)"
+    ventilationAirflow: "Ztráta větráním (výměna vzduchu)",
+    heatLossByRoom: "Ztráta po místnostech",
+    byElements: "Dle prvků",
+    unassignedElements: "Nepřiřazené prvky obálky",
+    filterBoth: "Prostup i větrání",
+    filterTransmission: "Pouze prostup",
+    filterVentilation: "Pouze větrání"
   },
   hierarchy: {
     title: "Hierarchie budovy (Podlaží a místnosti)",
@@ -63,7 +69,9 @@ export const cs = {
     tableHeaderAirExchange: "n (1/h)",
     tableHeaderPhiT: "Φ_T (W)",
     tableHeaderPhiV: "Φ_V (W)",
-    tableHeaderTotal: "Φ_celk (W)"
+    tableHeaderTotal: "Φ_celk (W)",
+    hasHRV: "Využívá rekuperaci",
+    hrvEfficiency: "Účinnost rekuperace (0.0 - 1.0)"
   },
   environmental: {
     title: "Teploty a větrání",
@@ -117,6 +125,7 @@ export const cs = {
     assemblyName: "Název konstrukce",
     constType: "Typ konstrukce",
     addAssemblyBtn: "Přidat konstrukci",
+    groundTemp: "Teplota zeminy (°C)",
     types: {
       wall: "Vnější stěna",
       roof: "Střecha / strop",

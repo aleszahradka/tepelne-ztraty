@@ -111,8 +111,13 @@ export function calculateTransmissionLoss(
     }
   }
 
+  const assembly = assemblies.find(a => a.id === element.assembly_id);
+  const isGround = element.adjacent_space_type === 'ground' || assembly?.type === 'floor';
+  const groundTemp = assembly?.t_ground ?? settings.t_ground ?? 5;
+  const externalTemp = isGround ? groundTemp : settings.t_e;
+
   // 1. External Net Transmission Loss
-  const deltaT = indoorTemp - settings.t_e;
+  const deltaT = indoorTemp - externalTemp;
   const netArea = calculateNetArea(element, allElements, rooms, storeys);
   let loss = netArea * uEffective * deltaT * element.b_factor;
 
@@ -148,13 +153,19 @@ export function calculateVentilationLoss(settings: EnvironmentalSettings): numbe
 /**
  * Calculates ventilation heat loss for a specific room:
  * V_i = room.area * room.height
- * Phi_V,i = V_i * room.air_exchange_rate * 0.34 * (room.t_int - outdoorTemp)
+ * Phi_V,i = V_i * room.air_exchange_rate * 0.34 * (room.t_int - outdoorTemp) * (1 - eta_hrv)
  */
 export function calculateRoomVentilationLoss(room: Room, outdoorTemp: number): number {
   const volume = room.area * room.height;
   const deltaT = room.t_int - outdoorTemp;
-  const loss = volume * room.air_exchange_rate * 0.34 * deltaT;
-  return loss > 0 ? loss : 0;
+  const unmitigatedLoss = volume * room.air_exchange_rate * 0.34 * deltaT;
+  if (unmitigatedLoss <= 0) return 0;
+
+  if (room.has_hrv) {
+    const efficiency = typeof room.hrv_efficiency === 'number' ? room.hrv_efficiency : 0.80;
+    return unmitigatedLoss * (1 - efficiency);
+  }
+  return unmitigatedLoss;
 }
 
 /**

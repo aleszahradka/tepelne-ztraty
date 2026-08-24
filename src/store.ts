@@ -40,6 +40,7 @@ export function generateUUID(): string {
 const DEFAULT_ENVIRONMENTAL_SETTINGS: EnvironmentalSettings = {
   t_int: 20,
   t_e: -15,
+  t_ground: 5,
   room_volume: 150,
   air_exchange_rate: 0.5,
   building_orientation: 0
