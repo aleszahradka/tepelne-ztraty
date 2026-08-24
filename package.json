@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@flukxr/typst-cli": "*",
+    "@flukxr/typst-cli-linux-x64": "*",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "lucide-react": "^1.31.0",

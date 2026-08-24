@@ -111,7 +111,7 @@ export function generateTypstDocument(
       ${isCs ? "Výpočet tepelných ztrát budovy (ČSN EN 12831)" : "Building Heat Loss Calculation (EN 12831)"}
     ]
   ],
-  footer: [
+  footer: context [
     #align(center)[
       #text(size: 8pt, fill: rgb("#94a3b8"))[
         #counter(page).display("1 / 1", both: true)
@@ -211,9 +211,9 @@ export function generateTypstDocument(
 )`);
     lines.push(``);
 
-    // Required Formula for Ventilation Loss
+    // Required Formula for Ventilation Loss with dot
     lines.push(`*${isCs ? "Vzorec pro výpočet tepelné ztráty větráním (se zohledněním rekuperace HRV):" : "Ventilation Heat Loss Formula (including HRV efficiency):"}*`);
-    lines.push(`$ Phi_V = 0.34 cdot V_(m i n) cdot (t_(i n t) - t_e) cdot (1 - eta_(h r v)) $`);
+    lines.push(`$ Phi_V = 0.34 dot V_(m i n) dot (t_(i n t) - t_e) dot (1 - eta_(h r v)) $`);
     lines.push(`#v(1em)`);
   }
 
@@ -284,9 +284,9 @@ export function generateTypstDocument(
     lines.push(`== ${isCs ? "5. Obálky místností a konstrukce" : "5. Room Envelopes & Surfaces"}`);
     lines.push(``);
 
-    // Required Formula for Transmission Heat Loss
+    // Required Formula for Transmission Heat Loss with dot
     lines.push(`*${isCs ? "Vzorec pro výpočet tepelné ztráty prostupem:" : "Transmission Heat Loss Formula:"}*`);
-    lines.push(`$ Phi_T = A_k cdot U_k cdot (t_(i n t) - t_e) cdot b_k $`);
+    lines.push(`$ Phi_T = A_k dot U_k dot (t_(i n t) - t_e) dot b_k $`);
     lines.push(``);
 
     if (filteredElements.length === 0) {
@@ -361,11 +361,11 @@ export function generateTypstDocument(
     lines.push(``);
 
     lines.push(`2. *${isCs ? "Tepelná ztráta prostupem tepla obálkou (Φ_T):" : "Transmission Heat Loss (Φ_T):"}*`);
-    lines.push(`$ Phi_T = A_k cdot U_k cdot (t_(i n t) - t_e) cdot b_k $`);
+    lines.push(`$ Phi_T = A_k dot U_k dot (t_(i n t) - t_e) dot b_k $`);
     lines.push(``);
 
     lines.push(`3. *${isCs ? "Tepelná ztráta větráním (Φ_V):" : "Ventilation Heat Loss (Φ_V):"}*`);
-    lines.push(`$ Phi_V = 0.34 cdot V_(m i n) cdot (t_(i n t) - t_e) cdot (1 - eta_(h r v)) $`);
+    lines.push(`$ Phi_V = 0.34 dot V_(m i n) dot (t_(i n t) - t_e) dot (1 - eta_(h r v)) $`);
     lines.push(``);
   }
 

@@ -65,10 +65,11 @@ export function runTypstGeneratorTests() {
   assert(fullDoc.includes('1.01 Obývák'), 'Full document should contain room 1.01 Obývák');
   assert(fullDoc.includes('1.02 Chodba'), 'Full document should contain room 1.02 Chodba');
   assert(fullDoc.includes('2.01 Ložnice'), 'Full document should contain room 2.01 Ložnice');
+  assert(fullDoc.includes('footer: context ['), 'Page footer should wrap counter in context [');
   assert(fullDoc.includes('$ U = 1 / (R_(s i) + sum (d_i / lambda_i) + R_(s e)) + Delta U_(T B) $'), 'Should render exact U-value formula');
-  assert(fullDoc.includes('$ Phi_T = A_k cdot U_k cdot (t_(i n t) - t_e) cdot b_k $'), 'Should render exact Transmission formula');
-  assert(fullDoc.includes('$ Phi_V = 0.34 cdot V_(m i n) cdot (t_(i n t) - t_e) cdot (1 - eta_(h r v)) $'), 'Should render exact Ventilation formula');
-  console.log('✓ Test 1 Passed: Full document generated with all chapters and formulas.');
+  assert(fullDoc.includes('$ Phi_T = A_k dot U_k dot (t_(i n t) - t_e) dot b_k $'), 'Should render exact Transmission formula with dot');
+  assert(fullDoc.includes('$ Phi_V = 0.34 dot V_(m i n) dot (t_(i n t) - t_e) dot (1 - eta_(h r v)) $'), 'Should render exact Ventilation formula with dot');
+  console.log('✓ Test 1 Passed: Full document generated with footer context and dot multiplication formulas.');
 
   // Test 2: Unchecking "environmental" ("Teploty a větrání") omits chapter from output
   const docWithoutEnvironmental = generateTypstDocument(state, {
