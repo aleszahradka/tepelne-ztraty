@@ -209,6 +209,25 @@ export const cs = {
       custom: "Vlastní faktor"
     }
   },
+  export: {
+    title: "Export dokumentu / Document Export",
+    desc: "Nakonfigurujte si rozsah exportovaného protokolu v aplikaci Typst. Můžete zapínat a vypínat jednotlivé sekce i vybraná podlaží a místnosti.",
+    sectionsTitle: "Výběr sekcí k exportu",
+    entitiesTitle: "Výběr podlaží a místností",
+    selectAll: "Vybrat vše",
+    deselectAll: "Odznačit vše",
+    exportBtn: "Exportovat do TYPST",
+    unassignedStorey: "Nepřiřazené místnosti",
+    sections: {
+      summary: "Executive Summary & Key Results (Φ_CELK, Φ_T, Φ_V)",
+      environmental: "Teploty a větrání",
+      hierarchy: "Hierarchie budovy",
+      assemblies: "Stavební konstrukce 1D",
+      envelope: "Obálky místností",
+      distribution: "Rozdělení tepelných ztrát obálkou",
+      methodology: "Výpočtové postupy a vzorce"
+    }
+  },
   footer: {
     text: "Tepelné ztráty budovy. Připraveno pro 3D barevné teplotní mapy v WebGL.",
     method: "Metoda výpočtu EN 12831",
