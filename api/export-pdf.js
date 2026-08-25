@@ -6,6 +6,11 @@ const util = require('util');
 const execFilePromise = util.promisify(execFile);
 
 function getTypstExecutable() {
+  const binName = os.platform() === 'win32' ? 'typst.exe' : 'typst';
+  const localBin = path.join(process.cwd(), 'bin', binName);
+  if (fs.existsSync(localBin)) {
+    return localBin;
+  }
   try {
     const platformPkg = require('@flukxr/typst-cli-linux-x64');
     if (platformPkg.typstPath) return platformPkg.typstPath;
@@ -64,24 +69,19 @@ module.exports = async function handler(req, res) {
 
     const pdfBuffer = fs.readFileSync(outputPath);
 
-    // Clean up temporary files
-    try {
-      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-    } catch (e) {}
-
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="Tepelne_Ztraty_Vypocet.pdf"');
     return res.status(200).send(pdfBuffer);
 
   } catch (err) {
+    const cliDiagnostics = err.stderr ? String(err.stderr) : (err.message || String(err));
+    console.error("Pure CLI Export Error:", cliDiagnostics);
+    return res.status(500).json({ error: `Kompilace PDF selhala: ${cliDiagnostics}` });
+  } finally {
+    // Clean up temporary files in finally block
     try {
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     } catch (e) {}
-
-    const cliDiagnostics = err.stderr ? String(err.stderr) : (err.message || String(err));
-    console.error("Pure CLI Export Error:", cliDiagnostics);
-    return res.status(500).json({ error: `Nativní CLI kompilace selhala: ${cliDiagnostics}` });
   }
 };
