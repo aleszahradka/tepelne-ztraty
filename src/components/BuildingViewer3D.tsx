@@ -1066,7 +1066,7 @@ export const BuildingViewer3D: React.FC = () => {
       <div className="relative w-full h-[480px] rounded-xl overflow-hidden shadow-inner" style={{ backgroundColor: theme.bg_color }}>
         <Canvas
           camera={{ position: [14, 14, 18], fov: 45 }}
-          shadows
+          shadows={{ type: THREE.PCFShadowMap }}
           className="w-full h-full"
         >
           <ambientLight intensity={0.7} />

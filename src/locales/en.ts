@@ -211,6 +211,25 @@ export const en: Translations = {
       custom: "Custom factor"
     }
   },
+  export: {
+    title: "Document Export (Typst)",
+    desc: "Configure the content scope for the exported report. Toggle individual web sections, storeys, and rooms on or off.",
+    sectionsTitle: "Export Section Selection",
+    entitiesTitle: "Select Storeys & Rooms",
+    selectAll: "Select All",
+    deselectAll: "Deselect All",
+    exportBtn: "Export to TYPST",
+    unassignedStorey: "Unassigned Rooms",
+    sections: {
+      summary: "Executive Summary & Key Results (Φ_Total, Φ_T, Φ_V)",
+      environmental: "Temperatures & Ventilation Parameters",
+      hierarchy: "Building Storey & Room Hierarchy",
+      assemblies: "Material Assemblies & U-Values",
+      envelope: "Room Envelopes & Surfaces",
+      distribution: "Heat Loss Distribution",
+      methodology: "Calculation Methodology & Formulas"
+    }
+  },
   footer: {
     text: "Building Heat Loss Calculator. Prepared for 3D color-coded WebGL heatmap overlays.",
     method: "EN 12831 Calculation Method",

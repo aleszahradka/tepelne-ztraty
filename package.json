@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/download-typst.js"
   },
   "dependencies": {
+    "@flukxr/typst-cli": "*",
+    "@flukxr/typst-cli-linux-x64": "*",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "lucide-react": "^1.31.0",

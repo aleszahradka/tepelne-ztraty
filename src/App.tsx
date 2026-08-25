@@ -3,6 +3,7 @@ import { EnvironmentalSettingsPanel } from './components/EnvironmentalSettings';
 import { MaterialDatabase } from './components/MaterialDatabase';
 import { AssemblyBuilder } from './components/AssemblyBuilder';
 import { EnvelopeManager } from './components/EnvelopeManager';
+import { ExportManager } from './components/ExportManager';
 import { RoomManager } from './components/RoomManager';
 import { DashboardStats } from './components/DashboardStats';
 import { BuildingViewer3D } from './components/BuildingViewer3D';
@@ -40,7 +41,7 @@ function App() {
           </section>
         </div>
 
-        {/* Lower Full-Width Section: Building Hierarchy, Assemblies & Envelope Manager */}
+        {/* Lower Full-Width Section: Building Hierarchy, Assemblies, Envelope Manager & Typst Export */}
         <div className="space-y-8">
           <section id="room-manager">
             <RoomManager />
@@ -52,6 +53,10 @@ function App() {
 
           <section id="envelope-manager">
             <EnvelopeManager />
+          </section>
+
+          <section id="export-manager">
+            <ExportManager />
           </section>
         </div>
 
