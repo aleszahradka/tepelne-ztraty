@@ -181,12 +181,8 @@ export const ExportManager: React.FC = () => {
       });
 
       if (!response.ok) {
-        let errMsg = 'Export PDF failed';
-        try {
-          const errJson = await response.json();
-          errMsg = errJson.error || errMsg;
-        } catch (err) {}
-        throw new Error(errMsg);
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(errorData.error || 'Server error during PDF compilation');
       }
 
       const blob = await response.blob();
