@@ -96,6 +96,29 @@ export function runTypstGeneratorTests() {
   assert(docFilteredRoom.includes('2.01 Ložnice'), 'Selected room r3 must remain');
   console.log('✓ Test 3 Passed: Deselecting room r2 removed it and its envelope elements from exported report.');
 
+  // Test 4: Unassigned Storeys (storeys = []) outputs all rooms and accurate calculated non-zero kW values
+  const stateNoStoreys: ProjectState = {
+    ...state,
+    storeys: [],
+    rooms: [
+      { id: 'r1', name: 'Unassigned Living Room', storey_id: '', area: 30, height: 2.7, t_int: 21, air_exchange_rate: 0.5 },
+      { id: 'r2', name: 'Unassigned Hall', storey_id: '', area: 10, height: 2.7, t_int: 18, air_exchange_rate: 0.5 }
+    ]
+  };
+
+  const docNoStoreys = generateTypstDocument(stateNoStoreys, {
+    selectedSectionKeys: allSections,
+    selectedStoreyIds: [],
+    selectedRoomIds: ['r1', 'r2'],
+    lang: 'cs'
+  });
+
+  assert(!docNoStoreys.includes('Žádné místnosti nebyly vybrány do exportu'), 'Project with storeys: [] should NOT filter out rooms');
+  assert(docNoStoreys.includes('Unassigned Living Room'), 'Unassigned Living Room must be included in tables');
+  assert(docNoStoreys.includes('Bez určeného podlaží'), 'Rooms without storeys must display fallback storey header "Bez určeného podlaží"');
+  assert(!docNoStoreys.includes('0.00 kW'), 'Total heat loss sum must NOT be 0.00 kW for valid rooms');
+  console.log('✓ Test 4 Passed: Empty storeys array correctly preserved unassigned rooms, displayed fallback storey header, and calculated non-zero total heat loss.');
+
   console.log('--- ALL TYPST GENERATOR TESTS PASSED ---');
 }
 

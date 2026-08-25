@@ -33,11 +33,18 @@ export function generateTypstDocument(
   const allStoreys = state.storeys || [];
   const filteredStoreys = allStoreys.filter(s => selectedStoreySet.has(s.id));
 
-  // 2. Filter Rooms (must be selected AND belong to a selected storey)
+  // 2. Filter Rooms
+  // A room is included if it's selected in selectedRoomSet AND either:
+  // - its storey_id is selected in selectedStoreySet
+  // - its storey_id is empty/unassigned
+  // - allStoreys is empty (no storeys defined in project)
   const allRooms = state.rooms || [];
-  const filteredRooms = allRooms.filter(r =>
-    selectedRoomSet.has(r.id) && selectedStoreySet.has(r.storey_id)
-  );
+  const filteredRooms = allRooms.filter(r => {
+    if (!selectedRoomSet.has(r.id)) return false;
+    if (allStoreys.length === 0) return true;
+    if (!r.storey_id) return true;
+    return selectedStoreySet.has(r.storey_id);
+  });
   const filteredRoomIds = new Set(filteredRooms.map(r => r.id));
 
   // 3. Filter Envelope Elements
@@ -61,6 +68,8 @@ export function generateTypstDocument(
   });
 
   // 4. Calculate Filtered Aggregate Heat Losses & Metrics
+  const globalDeltaT = state.environmental_settings.t_int - state.environmental_settings.t_e;
+
   const phiT = filteredElements.reduce((sum, el) => {
     return sum + calculateTransmissionLoss(
       el,
@@ -76,8 +85,7 @@ export function generateTypstDocument(
   let phiV = 0;
   if (allRooms.length === 0) {
     // Global fallback
-    const deltaT = state.environmental_settings.t_int - state.environmental_settings.t_e;
-    phiV = Math.max(0, state.environmental_settings.room_volume * state.environmental_settings.air_exchange_rate * 0.34 * deltaT);
+    phiV = Math.max(0, state.environmental_settings.room_volume * state.environmental_settings.air_exchange_rate * 0.34 * globalDeltaT);
   } else {
     // Sum filtered rooms
     phiV = filteredRooms.reduce((sum, room) => {
@@ -97,7 +105,11 @@ export function generateTypstDocument(
       weightedU += aNet * uEff;
     }
   });
-  const avgU = totalArea > 0 ? weightedU / totalArea : 0;
+
+  // Calculate average U-value using Phi_T / (A_total * DeltaT) if possible
+  const avgU = (totalArea > 0 && globalDeltaT > 0)
+    ? phiT / (totalArea * globalDeltaT)
+    : (totalArea > 0 ? weightedU / totalArea : 0);
 
   // 5. Build Typst Document Markup
   const lines: string[] = [];
@@ -180,7 +192,7 @@ export function generateTypstDocument(
   [${isCs ? "Průměrný součinitel prostupu tepla (U_prům)" : "Average U-Value (U_avg)"}], [${avgU.toFixed(3)}], [W/(m²·K)],
   [${isCs ? "Návrhová vnitřní teplota (t_int)" : "Design Indoor Temp (t_int)"}], [${state.environmental_settings.t_int.toFixed(1)}], [°C],
   [${isCs ? "Návrhová venkovní teplota (t_e)" : "Design Outdoor Temp (t_e)"}], [${state.environmental_settings.t_e.toFixed(1)}], [°C],
-  [${isCs ? "Teplotní rozdíl (ΔT)" : "Temperature Difference (ΔT)"}], [${(state.environmental_settings.t_int - state.environmental_settings.t_e).toFixed(1)}], [K]
+  [${isCs ? "Teplotní rozdíl (ΔT)" : "Temperature Difference (ΔT)"}], [${globalDeltaT.toFixed(1)}], [K]
 )`);
     lines.push(`#v(1em)`);
   }
@@ -211,7 +223,6 @@ export function generateTypstDocument(
 )`);
     lines.push(``);
 
-    // Required Formula for Ventilation Loss with dot
     lines.push(`*${isCs ? "Vzorec pro výpočet tepelné ztráty větráním (se zohledněním rekuperace HRV):" : "Ventilation Heat Loss Formula (including HRV efficiency):"}*`);
     lines.push(`$ Phi_V = 0.34 dot V_(m i n) dot (t_(i n t) - t_e) dot (1 - eta_(h r v)) $`);
     lines.push(`#v(1em)`);
@@ -222,28 +233,28 @@ export function generateTypstDocument(
     lines.push(`== ${isCs ? "3. Hierarchie budovy (Podlaží a místnosti)" : "3. Building Hierarchy (Storeys & Rooms)"}`);
     lines.push(``);
 
-    if (filteredStoreys.length === 0 && filteredRooms.length === 0) {
-      lines.push(`_${isCs ? "Žádná podlaží ani místnosti nebyly vybrány do exportu." : "No storeys or rooms selected for export."}_`);
+    if (filteredRooms.length === 0) {
+      lines.push(`_${isCs ? "Žádné místnosti nebyly vybrány do exportu." : "No rooms selected for export."}_`);
     } else {
       lines.push(`#table(
-  columns: (1.5fr, 2fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+  columns: (1.5fr, 1.8fr, 1.2fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1.2fr),
   inset: 5pt,
-  align: (left, left, right, right, right, right, center, right),
+  align: (left, left, center, right, right, right, right, center, right),
   fill: (x, y) => if y == 0 { rgb("#f1f5f9") } else { none },
   stroke: 0.5pt + rgb("#cbd5e1"),
-  [*${isCs ? "Podlaží" : "Storey"}*], [*${isCs ? "Místnost" : "Room"}*], [*${isCs ? "Plocha" : "Area"} (m²)*], [*${isCs ? "Výška" : "Height"} (m)*], [*${isCs ? "Objem" : "Vol"} (m³)*], [*${isCs ? "t_int" : "t_int"} (°C)*], [*${isCs ? "HRV" : "HRV"}*], [*${isCs ? "Φ_celk" : "Φ_total"} (W)*],
+  [*${isCs ? "Podlaží" : "Storey"}*], [*${isCs ? "Místnost" : "Room"}*], [*${isCs ? "Rozměry" : "Dims"} (m)*], [*${isCs ? "Plocha" : "Area"} (m²)*], [*${isCs ? "Výška" : "Height"} (m)*], [*${isCs ? "Objem" : "Vol"} (m³)*], [*${isCs ? "t_int" : "t_int"} (°C)*], [*${isCs ? "n (1/h)" : "n (1/h)"}*], [*${isCs ? "Φ_celk" : "Φ_total"} (W)*],
   ${filteredRooms.map(r => {
-    const s = filteredStoreys.find(st => st.id === r.storey_id);
-    const storeyName = s ? s.name : (isCs ? "Nepřiřazeno" : "Unassigned");
+    const s = allStoreys.find(st => st.id === r.storey_id);
+    const storeyName = s ? s.name : (isCs ? "Bez určeného podlaží" : "Unassigned Storey");
+    const dimsStr = (r.width && r.length) ? `${r.width}×${r.length}` : "-";
     const vol = r.area * r.height;
     const roomLossT = filteredElements
       .filter(el => el.room_id === r.id)
       .reduce((sum, el) => sum + calculateTransmissionLoss(el, state.assemblies, state.materials, state.environmental_settings, filteredElements, filteredRooms, filteredStoreys), 0);
     const roomLossV = calculateRoomVentilationLoss(r, state.environmental_settings.t_e);
     const roomLossTotal = roomLossT + roomLossV;
-    const hrvStr = r.has_hrv ? `${((r.hrv_efficiency ?? 0.8) * 100).toFixed(0)}%` : "-";
 
-    return `[${storeyName}], [${r.name}], [${r.area.toFixed(1)}], [${r.height.toFixed(2)}], [${vol.toFixed(1)}], [${r.t_int}], [${hrvStr}], [${roomLossTotal.toFixed(0)}]`;
+    return `[${storeyName}], [${r.name}], [${dimsStr}], [${r.area.toFixed(1)}], [${r.height.toFixed(2)}], [${vol.toFixed(1)}], [${r.t_int}], [${r.air_exchange_rate}], [${roomLossTotal.toFixed(0)}]`;
   }).join(',\n  ')}
 )`);
     }
@@ -255,7 +266,6 @@ export function generateTypstDocument(
     lines.push(`== ${isCs ? "4. Stavební konstrukce (1D U-hodnota)" : "4. Material Assemblies & U-Values"}`);
     lines.push(``);
 
-    // Required Formula for U-Value
     lines.push(`*${isCs ? "Vzorec pro výpočet součinitele prostupu tepla (U):" : "U-Value Calculation Formula:"}*`);
     lines.push(`$ U = 1 / (R_(s i) + sum (d_i / lambda_i) + R_(s e)) + Delta U_(T B) $`);
     lines.push(``);
@@ -284,7 +294,6 @@ export function generateTypstDocument(
     lines.push(`== ${isCs ? "5. Obálky místností a konstrukce" : "5. Room Envelopes & Surfaces"}`);
     lines.push(``);
 
-    // Required Formula for Transmission Heat Loss with dot
     lines.push(`*${isCs ? "Vzorec pro výpočet tepelné ztráty prostupem:" : "Transmission Heat Loss Formula:"}*`);
     lines.push(`$ Phi_T = A_k dot U_k dot (t_(i n t) - t_e) dot b_k $`);
     lines.push(``);
@@ -293,23 +302,27 @@ export function generateTypstDocument(
       lines.push(`_${isCs ? "Žádné prvky obálky nebyly vybrány." : "No envelope elements selected."}_`);
     } else {
       lines.push(`#table(
-  columns: (2fr, 1.5fr, 1.5fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+  columns: (2fr, 1.5fr, 1.5fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
   inset: 5pt,
-  align: (left, left, left, right, right, right, right, right),
+  align: (left, left, left, right, right, right, right, right, right),
   fill: (x, y) => if y == 0 { rgb("#f1f5f9") } else { none },
   stroke: 0.5pt + rgb("#cbd5e1"),
-  [*${isCs ? "Prvek" : "Element"}*], [*${isCs ? "Místnost" : "Room"}*], [*${isCs ? "Konstrukce" : "Assembly"}*], [*A_gross*], [*A_net*], [*U_eff*], [*b*], [*Φ_T (W)*],
+  [*${isCs ? "Prvek" : "Element"}*], [*${isCs ? "Místnost" : "Room"}*], [*${isCs ? "Konstrukce" : "Assembly"}*], [*A_net (m²)*], [*U_eff*], [*b_k*], [*t_int (°C)*], [*ΔT (K)*], [*Φ_T (W)*],
   ${filteredElements.map(el => {
     const rm = filteredRooms.find(r => r.id === el.room_id);
     const roomName = rm ? rm.name : (isCs ? "Nepřiřazeno" : "Unassigned");
     const asm = state.assemblies.find(a => a.id === el.assembly_id);
     const asmName = asm ? asm.name : "-";
-    const grossA = el.area * Math.max(1, el.count || 1);
     const netA = calculateNetArea(el, filteredElements, filteredRooms, filteredStoreys);
     const uEff = calculateEffectiveUValue(el, state.assemblies, state.materials);
+    const roomTInt = rm ? rm.t_int : state.environmental_settings.t_int;
+    const isGround = el.adjacent_space_type === 'ground' || asm?.type === 'floor';
+    const groundTemp = asm?.t_ground ?? state.environmental_settings.t_ground ?? 5;
+    const externalTemp = isGround ? groundTemp : state.environmental_settings.t_e;
+    const deltaT = roomTInt - externalTemp;
     const loss = calculateTransmissionLoss(el, state.assemblies, state.materials, state.environmental_settings, filteredElements, filteredRooms, filteredStoreys);
 
-    return `[${el.name}], [${roomName}], [${asmName}], [${grossA.toFixed(1)}], [${netA.toFixed(1)}], [${uEff.toFixed(2)}], [${el.b_factor.toFixed(2)}], [${loss.toFixed(0)}]`;
+    return `[${el.name}], [${roomName}], [${asmName}], [${netA.toFixed(1)}], [${uEff.toFixed(2)}], [${el.b_factor.toFixed(2)}], [${roomTInt}], [${deltaT.toFixed(1)}], [${loss.toFixed(0)}]`;
   }).join(',\n  ')}
 )`);
     }
@@ -325,13 +338,15 @@ export function generateTypstDocument(
       lines.push(`_${isCs ? "Žádné místnosti nebyly vybrány do přehledu rozdělení ztrát." : "No rooms selected for heat loss distribution."}_`);
     } else {
       lines.push(`#table(
-  columns: (2fr, 1fr, 1fr, 1fr, 1fr),
+  columns: (2fr, 1.5fr, 1fr, 1fr, 1fr, 1fr),
   inset: 6pt,
-  align: (left, right, right, right, right),
+  align: (left, left, right, right, right, right),
   fill: (x, y) => if y == 0 { rgb("#f1f5f9") } else { none },
   stroke: 0.5pt + rgb("#cbd5e1"),
-  [*${isCs ? "Místnost / Objekt" : "Room / Entity"}*], [*Φ_T (W)*], [*Φ_V (W)*], [*Φ_celk (W)*], [*${isCs ? "Podíl" : "Share"} (%)*],
+  [*${isCs ? "Místnost" : "Room"}*], [*${isCs ? "Podlaží" : "Storey"}*], [*Φ_T (W)*], [*Φ_V (W)*], [*Φ_celk (W)*], [*${isCs ? "Podíl" : "Share"} (%)*],
   ${filteredRooms.map(rm => {
+    const s = allStoreys.find(st => st.id === rm.storey_id);
+    const storeyName = s ? s.name : (isCs ? "Bez určeného podlaží" : "Unassigned Storey");
     const rmLossT = filteredElements
       .filter(el => el.room_id === rm.id)
       .reduce((sum, el) => sum + calculateTransmissionLoss(el, state.assemblies, state.materials, state.environmental_settings, filteredElements, filteredRooms, filteredStoreys), 0);
@@ -339,7 +354,7 @@ export function generateTypstDocument(
     const rmTotal = rmLossT + rmLossV;
     const share = phiTotal > 0 ? (rmTotal / phiTotal) * 100 : 0;
 
-    return `[${rm.name}], [${rmLossT.toFixed(0)}], [${rmLossV.toFixed(0)}], [${rmTotal.toFixed(0)}], [${share.toFixed(1)}%]`;
+    return `[${rm.name}], [${storeyName}], [${rmLossT.toFixed(0)}], [${rmLossV.toFixed(0)}], [${rmTotal.toFixed(0)}], [${share.toFixed(1)}%]`;
   }).join(',\n  ')}
 )`);
     }

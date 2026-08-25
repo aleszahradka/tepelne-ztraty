@@ -10,11 +10,11 @@ function getTypstExecutable() {
     const platformPkg = require('@flukxr/typst-cli-linux-x64');
     if (platformPkg.typstPath) return platformPkg.typstPath;
     if (platformPkg.executablePath) return platformPkg.executablePath;
-  } catch (e) {}
+  } catch (err) {}
   try {
     const genericPkg = require('@flukxr/typst-cli');
     if (genericPkg.executablePath) return genericPkg.executablePath;
-  } catch (e) {}
+  } catch (err) {}
   return path.join(process.cwd(), 'node_modules', '@flukxr', 'typst-cli-linux-x64', 'bin', 'typst');
 }
 
@@ -35,14 +35,25 @@ module.exports = async function handler(req, res) {
     }
 
     if (fs.existsSync(typstBin)) {
-      try { fs.chmodSync(typstBin, 0755); } catch (e) {}
+      try { fs.chmodSync(typstBin, 0o755); } catch (err) {}
     }
 
     fs.writeFileSync(inputPath, typstCode, 'utf8');
 
-    await execFilePromise(typstBin, ['compile', '--font-path', fontsDir, inputPath, outputPath], {
+    const compileArgs = ['compile'];
+    if (fs.existsSync(fontsDir)) {
+      compileArgs.push('--font-path', fontsDir);
+    }
+    compileArgs.push(inputPath, outputPath);
+
+    const envObj = { ...process.env };
+    if (fs.existsSync(fontsDir)) {
+      envObj.TYPST_FONT_PATHS = fontsDir;
+    }
+
+    await execFilePromise(typstBin, compileArgs, {
       timeout: 15000,
-      env: { ...process.env, TYPST_FONT_PATHS: fontsDir }
+      env: envObj
     });
 
     if (!fs.existsSync(outputPath)) {
@@ -54,7 +65,7 @@ module.exports = async function handler(req, res) {
     try {
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-    } catch (e) {}
+    } catch (err) {}
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="Tepelne_Ztraty_Vypocet.pdf"');
@@ -64,7 +75,7 @@ module.exports = async function handler(req, res) {
     try {
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-    } catch (e) {}
+    } catch (cleanErr) {}
 
     const cliDiagnostics = err.stderr ? String(err.stderr) : (err.message || String(err));
     console.error("PDF Export Error:", cliDiagnostics);

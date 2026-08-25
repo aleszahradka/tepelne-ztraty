@@ -15,10 +15,16 @@ const SECTION_KEYS = [
   'methodology'
 ];
 
+const UNASSIGNED_STOREY_KEY = '__unassigned__';
+
 export const ExportManager: React.FC = () => {
   const { t, language } = useTranslate();
   const storeys = useHeatLossStore((st) => st.storeys || []);
   const rooms = useHeatLossStore((st) => st.rooms || []);
+
+  const unassignedRooms = rooms.filter(
+    (r) => !r.storey_id || !storeys.some((s) => s.id === r.storey_id)
+  );
 
   const [selectedSections, setSelectedSections] = useState<Set<string>>(new Set(SECTION_KEYS));
   const [selectedStoreys, setSelectedStoreys] = useState<Set<string>>(new Set());
@@ -28,9 +34,13 @@ export const ExportManager: React.FC = () => {
 
   // Initialize selected storeys & rooms when storeys or rooms load/change
   useEffect(() => {
-    setSelectedStoreys(new Set(storeys.map((s) => s.id)));
+    const storeyIds = new Set(storeys.map((s) => s.id));
+    if (unassignedRooms.length > 0) {
+      storeyIds.add(UNASSIGNED_STOREY_KEY);
+    }
+    setSelectedStoreys(storeyIds);
     setSelectedRooms(new Set(rooms.map((r) => r.id)));
-    setExpandedStoreys(new Set(storeys.map((s) => s.id)));
+    setExpandedStoreys(new Set(storeyIds));
   }, [storeys, rooms]);
 
   // Section Toggle Handler
@@ -48,7 +58,10 @@ export const ExportManager: React.FC = () => {
   const toggleStorey = (storeyId: string) => {
     const nextStoreys = new Set(selectedStoreys);
     const nextRooms = new Set(selectedRooms);
-    const storeyRooms = rooms.filter((r) => r.storey_id === storeyId);
+
+    const storeyRooms = storeyId === UNASSIGNED_STOREY_KEY
+      ? unassignedRooms
+      : rooms.filter((r) => r.storey_id === storeyId);
 
     if (nextStoreys.has(storeyId)) {
       // Unselect storey & all its rooms
@@ -76,13 +89,17 @@ export const ExportManager: React.FC = () => {
     }
 
     // Check if any room in storey remains selected
-    const storeyRooms = rooms.filter((r) => r.storey_id === storeyId);
+    const effectiveStoreyId = storeyId || UNASSIGNED_STOREY_KEY;
+    const storeyRooms = effectiveStoreyId === UNASSIGNED_STOREY_KEY
+      ? unassignedRooms
+      : rooms.filter((r) => r.storey_id === effectiveStoreyId);
+
     const hasSelectedRoom = storeyRooms.some((r) => nextRooms.has(r.id));
 
     if (hasSelectedRoom) {
-      nextStoreys.add(storeyId);
+      nextStoreys.add(effectiveStoreyId);
     } else {
-      nextStoreys.delete(storeyId);
+      nextStoreys.delete(effectiveStoreyId);
     }
 
     setSelectedRooms(nextRooms);
@@ -103,7 +120,11 @@ export const ExportManager: React.FC = () => {
   // Select All Convenience Handler
   const handleSelectAll = () => {
     setSelectedSections(new Set(SECTION_KEYS));
-    setSelectedStoreys(new Set(storeys.map((s) => s.id)));
+    const allStoreyIds = new Set(storeys.map((s) => s.id));
+    if (unassignedRooms.length > 0) {
+      allStoreyIds.add(UNASSIGNED_STOREY_KEY);
+    }
+    setSelectedStoreys(allStoreyIds);
     setSelectedRooms(new Set(rooms.map((r) => r.id)));
   };
 
@@ -164,7 +185,7 @@ export const ExportManager: React.FC = () => {
         try {
           const errJson = await response.json();
           errMsg = errJson.error || errMsg;
-        } catch (e) {}
+        } catch (err) {}
         throw new Error(errMsg);
       }
 
@@ -291,26 +312,104 @@ export const ExportManager: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {storeys.length === 0 ? (
+            {storeys.length === 0 && unassignedRooms.length === 0 ? (
               <p className="text-xs text-slate-400 italic">
-                {t.hierarchy?.noStoreys || "Zatím nebylo vytvořeno žádné podlaží."}
+                {t.hierarchy?.noRooms || "Zatím nebyly vytvořeny žádné místnosti."}
               </p>
             ) : (
-              storeys.map((storey) => {
-                const isStoreyChecked = selectedStoreys.has(storey.id);
-                const isExpanded = expandedStoreys.has(storey.id);
-                const storeyRooms = rooms.filter((r) => r.storey_id === storey.id);
+              <>
+                {/* Defined Storeys */}
+                {storeys.map((storey) => {
+                  const isStoreyChecked = selectedStoreys.has(storey.id);
+                  const isExpanded = expandedStoreys.has(storey.id);
+                  const storeyRooms = rooms.filter((r) => r.storey_id === storey.id);
 
-                return (
-                  <div key={storey.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
-                    {/* Storey Row */}
+                  return (
+                    <div key={storey.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+                      {/* Storey Row */}
+                      <div className="flex items-center justify-between p-3 bg-slate-100/60 border-b border-slate-200/60">
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            onClick={() => toggleExpand(storey.id)}
+                            className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="w-4 h-4" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4" />
+                            )}
+                          </button>
+                          <input
+                            type="checkbox"
+                            checked={isStoreyChecked}
+                            onChange={() => toggleStorey(storey.id)}
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span className="text-xs font-bold text-slate-800">
+                            {storey.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            (Z = {storey.level_z}m)
+                          </span>
+                        </div>
+                        <span className="text-[10px] bg-slate-200 text-slate-600 font-bold px-2 py-0.5 rounded-full">
+                          {storeyRooms.filter((r) => selectedRooms.has(r.id)).length} / {storeyRooms.length} {t.hierarchy?.roomsTitle || "Místnosti"}
+                        </span>
+                      </div>
+
+                      {/* Room Level List */}
+                      {isExpanded && (
+                        <div className="p-2 space-y-1 bg-white">
+                          {storeyRooms.length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic pl-8 py-1">
+                              {t.hierarchy?.noRooms || "Žádné místnosti."}
+                            </p>
+                          ) : (
+                            storeyRooms.map((room) => {
+                              const isRoomChecked = selectedRooms.has(room.id);
+                              return (
+                                <label
+                                  key={room.id}
+                                  className={`flex items-center justify-between pl-8 pr-3 py-1.5 rounded transition-colors cursor-pointer ${
+                                    isRoomChecked
+                                      ? 'bg-indigo-50/50 text-slate-800'
+                                      : 'text-slate-400 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <input
+                                      type="checkbox"
+                                      checked={isRoomChecked}
+                                      onChange={() => toggleRoom(room.id, storey.id)}
+                                      className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                    />
+                                    <span className="text-xs font-medium">
+                                      {room.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    {room.area} m² • {room.t_int}°C
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Unassigned Rooms Group */}
+                {unassignedRooms.length > 0 && (
+                  <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
                     <div className="flex items-center justify-between p-3 bg-slate-100/60 border-b border-slate-200/60">
                       <div className="flex items-center gap-2.5">
                         <button
-                          onClick={() => toggleExpand(storey.id)}
+                          onClick={() => toggleExpand(UNASSIGNED_STOREY_KEY)}
                           className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors"
                         >
-                          {isExpanded ? (
+                          {expandedStoreys.has(UNASSIGNED_STOREY_KEY) ? (
                             <ChevronDown className="w-4 h-4" />
                           ) : (
                             <ChevronRight className="w-4 h-4" />
@@ -318,64 +417,54 @@ export const ExportManager: React.FC = () => {
                         </button>
                         <input
                           type="checkbox"
-                          checked={isStoreyChecked}
-                          onChange={() => toggleStorey(storey.id)}
+                          checked={selectedStoreys.has(UNASSIGNED_STOREY_KEY)}
+                          onChange={() => toggleStorey(UNASSIGNED_STOREY_KEY)}
                           className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                         />
                         <span className="text-xs font-bold text-slate-800">
-                          {storey.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          (Z = {storey.level_z}m)
+                          {t.export?.unassignedStorey || "Bez určeného podlaží"}
                         </span>
                       </div>
                       <span className="text-[10px] bg-slate-200 text-slate-600 font-bold px-2 py-0.5 rounded-full">
-                        {storeyRooms.filter((r) => selectedRooms.has(r.id)).length} / {storeyRooms.length} {t.hierarchy?.roomsTitle || "Místnosti"}
+                        {unassignedRooms.filter((r) => selectedRooms.has(r.id)).length} / {unassignedRooms.length} {t.hierarchy?.roomsTitle || "Místnosti"}
                       </span>
                     </div>
 
-                    {/* Room Level List */}
-                    {isExpanded && (
+                    {expandedStoreys.has(UNASSIGNED_STOREY_KEY) && (
                       <div className="p-2 space-y-1 bg-white">
-                        {storeyRooms.length === 0 ? (
-                          <p className="text-[11px] text-slate-400 italic pl-8 py-1">
-                            {t.hierarchy?.noRooms || "Žádné místnosti."}
-                          </p>
-                        ) : (
-                          storeyRooms.map((room) => {
-                            const isRoomChecked = selectedRooms.has(room.id);
-                            return (
-                              <label
-                                key={room.id}
-                                className={`flex items-center justify-between pl-8 pr-3 py-1.5 rounded transition-colors cursor-pointer ${
-                                  isRoomChecked
-                                    ? 'bg-indigo-50/50 text-slate-800'
-                                    : 'text-slate-400 hover:bg-slate-50'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <input
-                                    type="checkbox"
-                                    checked={isRoomChecked}
-                                    onChange={() => toggleRoom(room.id, storey.id)}
-                                    className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                  />
-                                  <span className="text-xs font-medium">
-                                    {room.name}
-                                  </span>
-                                </div>
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  {room.area} m² • {room.t_int}°C
+                        {unassignedRooms.map((room) => {
+                          const isRoomChecked = selectedRooms.has(room.id);
+                          return (
+                            <label
+                              key={room.id}
+                              className={`flex items-center justify-between pl-8 pr-3 py-1.5 rounded transition-colors cursor-pointer ${
+                                isRoomChecked
+                                  ? 'bg-indigo-50/50 text-slate-800'
+                                  : 'text-slate-400 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isRoomChecked}
+                                  onChange={() => toggleRoom(room.id, '')}
+                                  className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span className="text-xs font-medium">
+                                  {room.name}
                                 </span>
-                              </label>
-                            );
-                          })
-                        )}
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {room.area} m² • {room.t_int}°C
+                              </span>
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
-                );
-              })
+                )}
+              </>
             )}
           </div>
         </div>
