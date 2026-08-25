@@ -10,11 +10,11 @@ function getTypstExecutable() {
     const platformPkg = require('@flukxr/typst-cli-linux-x64');
     if (platformPkg.typstPath) return platformPkg.typstPath;
     if (platformPkg.executablePath) return platformPkg.executablePath;
-  } catch (err) {}
+  } catch (e) {}
   try {
     const genericPkg = require('@flukxr/typst-cli');
     if (genericPkg.executablePath) return genericPkg.executablePath;
-  } catch (err) {}
+  } catch (e) {}
   return path.join(process.cwd(), 'node_modules', '@flukxr', 'typst-cli-linux-x64', 'bin', 'typst');
 }
 
@@ -31,41 +31,44 @@ module.exports = async function handler(req, res) {
   try {
     const { typstCode } = req.body || {};
     if (!typstCode || typeof typstCode !== 'string') {
-      return res.status(400).json({ error: 'Missing or invalid typstCode string.' });
+      return res.status(400).json({ error: 'Chybí nebo je neplatný řetězec typstCode.' });
     }
 
     if (fs.existsSync(typstBin)) {
-      try { fs.chmodSync(typstBin, 0o755); } catch (err) {}
+      try { fs.chmodSync(typstBin, 0o755); } catch (e) {}
     }
 
+    // 1. Write markup to temporary file on disk
     fs.writeFileSync(inputPath, typstCode, 'utf8');
 
-    const compileArgs = ['compile'];
+    // 2. Execute PURE native CLI compilation
+    const args = ['compile'];
     if (fs.existsSync(fontsDir)) {
-      compileArgs.push('--font-path', fontsDir);
+      args.push('--font-path', fontsDir);
     }
-    compileArgs.push(inputPath, outputPath);
+    args.push(inputPath, outputPath);
 
     const envObj = { ...process.env };
     if (fs.existsSync(fontsDir)) {
       envObj.TYPST_FONT_PATHS = fontsDir;
     }
 
-    await execFilePromise(typstBin, compileArgs, {
+    await execFilePromise(typstBin, args, {
       timeout: 15000,
       env: envObj
     });
 
     if (!fs.existsSync(outputPath)) {
-      throw new Error('PDF output file was not generated.');
+      throw new Error('Nativní CLI proběhlo, ale výstupní PDF soubor nebyl vytvořen.');
     }
 
     const pdfBuffer = fs.readFileSync(outputPath);
 
+    // Clean up temporary files
     try {
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-    } catch (err) {}
+    } catch (e) {}
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="Tepelne_Ztraty_Vypocet.pdf"');
@@ -75,10 +78,10 @@ module.exports = async function handler(req, res) {
     try {
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-    } catch (cleanErr) {}
+    } catch (e) {}
 
     const cliDiagnostics = err.stderr ? String(err.stderr) : (err.message || String(err));
-    console.error("PDF Export Error:", cliDiagnostics);
-    return res.status(500).json({ error: `Kompilace PDF selhala: ${cliDiagnostics}` });
+    console.error("Pure CLI Export Error:", cliDiagnostics);
+    return res.status(500).json({ error: `Nativní CLI kompilace selhala: ${cliDiagnostics}` });
   }
 };
